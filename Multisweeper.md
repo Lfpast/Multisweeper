@@ -1,15 +1,19 @@
-# Project Announcement: Multiplayer Minesweeper
+# Project Announcement: Multisweeper
 
 ## 1. Title of the Project
-Multiplayer Minesweeper
+Multisweeper
 
 ## 2. Game Front Page
 ### What Will Be in It
-The front page serves as the entry point to the game, designed to be user-friendly and informative. Upon loading, users will see a selection of game board options (referred to as "sand tables") with predefined modes: Classic (8x8 grid with 10 mines), Simple (9x9 with 10 mines), Medium (16x16 with 40 mines), Expert (30x16 with 99 mines), and Custom. For Custom mode, users can input the width, height, and number of mines, and the system will generate the board accordingly.
+The front page serves as the entry point to the game, designed to be user-friendly and informative. 
 
-Users can then choose between single-player mode or multiplayer online mode. In multiplayer mode, players can pair up or join existing games via a matchmaking system that shows available rooms or allows creating new ones.
+Initially, the player enters their username and password to log in to the game. The username is for tracking the player's statistics and is unique among the game. After that, the user can log out at any time they want. The user state is also persistent in the browser. In other words, refreshing the website does not automatically log out the user.  
 
-Additional features include:
+Then, the player can initiate a game by creating a lobby or to join a lobby created by other players by the lobby URL. The player who created the lobby can modify the settings of the game and begin the game when all players joined. If the player wants to play in a single-player mode, they can also begin the game without any other players joining in addition.  
+
+Last, the player who created the lobby sees a selection of game board options with predefined modes: **Classic** (8x8 grid with 10 mines), **Simple** (9x9 with 10 mines), **Medium** (16x16 with 40 mines), **Expert** (30x16 with 99 mines), and **Custom**, for which the player can customize the width, height, and number of mines of the game.
+
+In addition, in the game front page, besides creating a lobby and joining a lobby, the player can also perform the following operations:  
 - **Theme Selection**: Users can choose different visual themes for the board, such as classic grid, desert, or space patterns.
 - **Statistics Dashboard**: Displays user stats like total games played across modes, total time spent, wins, win rate, and longest winning streak.
 - **Side Menu Bar**: Options to adjust game volume, toggle timer, enable/disable end-game animations, and toggle auto-reveal on clicks. There's also a "Gameplay Introduction" section for quick rules, and an "About" section with credits (e.g., production staff, version info).
