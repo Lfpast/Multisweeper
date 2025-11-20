@@ -266,4 +266,195 @@ describe("Game Instance", () => {
             }
         });
     });
+
+    describe("Game Over (isGameOver)", () => {
+        it("should return false for new game", () => {
+            expect(game.isGameOver()).toBe(false);
+        });
+
+        it("should return true when mine is revealed (Loss)", () => {
+            game.set(0, 0, Tile.Min);
+            game.reveal(0, 0);
+            expect(game.isGameOver()).toBe(true);
+        });
+
+        it("should return true when all safe tiles are revealed (Win)", () => {
+            const W = 3;
+            const H = 3;
+            game = create(W, H);
+            // Place one mine at (0,0)
+            game.set(0, 0, Tile.Min);
+            // All others are safe (Empty by default)
+            
+            // Reveal all safe tiles
+            for (let x = 0; x < W; x++) {
+                for (let y = 0; y < H; y++) {
+                    if (x === 0 && y === 0) continue;
+                    game.reveal(x, y);
+                }
+            }
+
+            expect(game.isGameOver()).toBe(true);
+        });
+
+        it("should return false when game is in progress and NOT ambiguous", () => {
+            // I need a case where we can deduce a SAFE tile.
+            // 1 2 1 pattern on a wall.
+            // 1 2 1
+            // A B C
+            // A=Mine, C=Mine, B=Safe.
+            
+            const W3 = 3;
+            const H3 = 2;
+            game = create(W3, H3);
+            
+            game.set(0, 0, Tile.Num(1));
+            game.set(1, 0, Tile.Num(2));
+            game.set(2, 0, Tile.Num(1));
+            
+            game.set(0, 1, Tile.Min);
+            game.set(1, 1, Tile.Emp); // Safe
+            game.set(2, 1, Tile.Min);
+            
+            game.reveal(0, 0);
+            game.reveal(1, 0);
+            game.reveal(2, 0);
+            
+            // Now (1,1) is safe and deducible.
+            // So isGameOver should be false.
+            expect(game.isGameOver()).toBe(false);
+        });
+
+        it("should return true when game is ambiguous (Win by Ambiguity)", () => {
+            const W = 2;
+            const H = 2;
+            game = create(W, H);
+            
+            // Setup:
+            // 1 1
+            // ? ? (One mine, one empty)
+            
+            // Let's say (0, 1) is Mine, (1, 1) is Empty.
+            game.set(0, 1, Tile.Min);
+            game.set(1, 1, Tile.Emp); // Actually Emp is default, but let's be explicit
+            
+            // Top row are numbers
+            game.set(0, 0, Tile.Num(1));
+            game.set(1, 0, Tile.Num(1));
+            
+            // Reveal top row
+            game.reveal(0, 0);
+            game.reveal(1, 0);
+            
+            // Now we have:
+            // 1 1
+            // H H
+            // And we know there is 1 mine in the bottom row (because of the 1s).
+            // Constraint from (0,0): (0,1) + (1,1) = 1 (Wait, (0,0) neighbors are (0,1), (1,0), (1,1))
+            // (1,0) is visible (Num).
+            // So neighbors of (0,0) are (0,1) and (1,1).
+            // Neighbors of (1,0) are (0,0), (0,1), (1,1).
+            
+            // Wait, let's check coordinates.
+            // (0,0) neighbors: (0,1), (1,0), (1,1).
+            // (1,0) neighbors: (0,0), (0,1), (1,1).
+            
+            // If (0,0) is 1. And (1,0) is 1.
+            // (0,0) sees (0,1) and (1,1). Sum = 1.
+            // (1,0) sees (0,1) and (1,1). Sum = 1.
+            
+            // So we have one constraint: A + B = 1.
+            // Solutions: A=1, B=0 OR A=0, B=1.
+            // A is (0,1), B is (1,1).
+            // Neither is always safe.
+            // So it is ambiguous.
+            
+            expect(game.isGameOver()).toBe(true);
+        });
+
+        it("should return false when game is NOT ambiguous", () => {
+            const W = 3;
+            const H = 1;
+            game = create(W, H);
+            
+            // 1 ? 1
+            // Mine is at (1,0).
+            // (0,0) is 1. (2,0) is 1.
+            // (1,0) is Mine.
+            
+            // Wait, 1D board?
+            // (0,0) neighbors (1,0).
+            // (2,0) neighbors (1,0).
+            
+            // If (0,0) is 1, then (1,0) MUST be a mine.
+            // If (1,0) is a mine, then (2,0) is satisfied.
+            
+            // But wait, if (1,0) is a mine, we can't click it.
+            // Is there a safe tile?
+            // No safe tiles to click.
+            // So it is ambiguous?
+            // "If there are NO hidden tiles that are guaranteed safe... is it ambiguous?"
+            // Yes.
+            
+            // Let's try a case where we CAN deduce a safe tile.
+            // 1 1 ?
+            // (0,0) is 1. (1,0) is 1. (2,0) is ?.
+            // (0,0) neighbors (1,0) (visible) and (0,1) (invalid) ...
+            // Let's use 2D.
+            
+            // 1 1
+            // M E
+            // (0,0)=1, (1,0)=1.
+            // (0,1)=Mine, (1,1)=Empty.
+            
+            // Reveal (0,0).
+            // (0,0) sees (0,1), (1,0), (1,1).
+            // (1,0) is hidden. (0,1) is hidden. (1,1) is hidden.
+            // This is too complex.
+            
+            // Simple case:
+            // 1 ?
+            // (0,0) is 1. (1,0) is ?.
+            // (1,0) MUST be a mine.
+            // No safe tile. Ambiguous.
+            
+            // Case with safe tile:
+            // 1 2 1
+            // ? ? ?
+            // (0,0)=1, (1,0)=2, (2,0)=1.
+            // (0,1)=?, (1,1)=?, (2,1)=?.
+            // (0,0) sees (0,1), (1,1). Sum=1.
+            // (2,0) sees (1,1), (2,1). Sum=1.
+            // (1,0) sees (0,1), (1,1), (2,1). Sum=2.
+            
+            // A+B=1
+            // B+C=1
+            // A+B+C=2
+            
+            // (A+B)+C=2 => 1+C=2 => C=1. (2,1) is Mine.
+            // A+(B+C)=2 => A+1=2 => A=1. (0,1) is Mine.
+            // A+B=1 => 1+B=1 => B=0. (1,1) is Safe.
+            
+            // So (1,1) is guaranteed safe.
+            // Should NOT be ambiguous.
+            
+            const W2 = 3;
+            const H2 = 2;
+            game = create(W2, H2);
+            
+            game.set(0, 0, Tile.Num(1));
+            game.set(1, 0, Tile.Num(2));
+            game.set(2, 0, Tile.Num(1));
+            
+            game.set(0, 1, Tile.Min);
+            game.set(1, 1, Tile.Emp);
+            game.set(2, 1, Tile.Min);
+            
+            game.reveal(0, 0);
+            game.reveal(1, 0);
+            game.reveal(2, 0);
+            
+            expect(game.isGameOver()).toBe(false);
+        });
+    });
 });

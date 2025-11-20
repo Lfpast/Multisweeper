@@ -1,4 +1,5 @@
 import { range, sampleSize } from "es-toolkit";
+import { isAmbiguous } from "./solver.js";
 
 /**
  * @type {unique symbol}
@@ -281,6 +282,30 @@ export function create(w, h) {
 		notify();
 	};
 
+	/**
+	 * Check if the game is over.
+	 * The game is over if a mine is revealed (Loss) or if all non-mine tiles are revealed (Win).
+	 * @returns {boolean}
+	 */
+	const isGameOver = () => {
+		let lost = false;
+		let won = true;
+		for (const x of range(w)) {
+			for (const y of range(h)) {
+				const t = get(x, y);
+				// @ts-expect-error impossible out-of-bounds
+				const v = visible[x][y];
+				if (t.t === TileMin && v) {
+					lost = true;
+				}
+				if (t.t !== TileMin && !v) {
+					won = false;
+				}
+			}
+		}
+		return lost || won || isAmbiguous(w, h, visible, get);
+	};
+
 	return {
 		init,
 		apply,
@@ -288,5 +313,6 @@ export function create(w, h) {
 		set,
 		reveal,
 		observe,
+		isGameOver,
 	};
 }
