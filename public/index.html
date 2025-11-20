@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>The Multisweeper</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+    <h2>The Connection Event</h2>
+    <p>Connecting...</p>
+    <script src="/socket.io/socket.io.min.js"></script>
+    <script>
+    $(function() {
+        // Create and connect the WebSocket
+        const socket = io();
+        socket.on('connect', () => {
+            $("p").css('display', 'none');
+            socket.on('welcome', (message) => {
+                $('body').append('<p>' + message + '</p>');
+            });
+        });
+    });
+    </script>
+</body>
+</html>
