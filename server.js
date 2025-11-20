@@ -1,15 +1,17 @@
 // server.js - Complete Backend for Multisweeper
 
-const express = require('express');
 const http = require('http');
+const express = require('express');
 const { Server } = require('socket.io');
 const { JSONFilePreset } = require('lowdb/node');
 const bcrypt = require('bcryptjs');
 const path = require('path');
+const WebSocket = require('ws');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
+const wss = new WebSocket.Server({ port: 8080 });
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
@@ -17,10 +19,10 @@ app.use(express.json());
 // Game Modes (including custom handling)
 const MODES = {
     classic: { width: 8, height: 8, mines: 10 },
-    simple: { width: 9, height: 9, mines: 10 },
-    medium: { width: 16, height: 16, mines: 40 },
-    expert: { width: 30, height: 16, mines: 99 }, // Note: 30x16 as per doc
-    custom: {} // Will be set dynamically
+    simple:  { width: 9, height: 9, mines: 10 },
+    medium:  { width: 16, height: 16, mines: 40 },
+    expert:  { width: 30, height: 16, mines: 99 }, // Note: 30x16 as per doc
+    custom:  {} // Will be set dynamically
 };
 
 // LowDB Initialization
@@ -359,6 +361,49 @@ io.on('connection', (socket) => {
                 }
 
                 break;
+            }
+        }
+    });
+});
+
+// WebSocket Server for simplified multiplayer (alternative to Socket.IO)
+wss.on('connection', function connection(ws) {
+    ws.on('message', function incoming(message) {
+        let msg;
+        try { msg = JSON.parse(message); } catch { return; }
+
+        // Join Room
+        if (msg.type === 'join') {
+            const { roomId, rows, cols, mines } = msg;
+            if (!rooms[roomId]) {
+                rooms[roomId] = {
+                    board: createBoard(rows, cols, mines),
+                    players: new Set()
+                };
+            }
+            rooms[roomId].players.add(ws);
+            ws.roomId = roomId;
+            ws.send(JSON.stringify({ type: 'board', board: rooms[roomId].board }));
+        }
+
+        // Player Action (e.g., reveal tile)
+        if (msg.type === 'action') {
+            const room = rooms[ws.roomId];
+            if (!room) return;
+            // Update room.board based on msg.action
+            // Broadcast updated board state
+            room.players.forEach(player => {
+                player.send(JSON.stringify({ type: 'board', board: room.board }));
+            });
+        }
+    });
+
+    ws.on('close', function () {
+        const roomId = ws.roomId;
+        if (roomId && rooms[roomId]) {
+            rooms[roomId].players.delete(ws);
+            if (rooms[roomId].players.size === 0) {
+                delete rooms[roomId]; // Delete room if empty
             }
         }
     });
