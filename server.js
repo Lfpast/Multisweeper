@@ -364,3 +364,18 @@ function generateBoard(width, height, numMines) {
 server.listen(8000, () => {
     console.log('Multisweeper 服务器启动成功! http://localhost:8000');
 });
+
+// 优雅退出：清空房间数据
+const cleanup = () => {
+    console.log('\n正在关闭服务器，清理房间数据...');
+    try {
+        fs.writeFileSync('db/lobbies.json', '{}');
+        console.log('Lobbies 已清空。');
+    } catch (e) {
+        console.error('清理失败:', e);
+    }
+    process.exit(0);
+};
+
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
