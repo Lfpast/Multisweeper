@@ -78,9 +78,19 @@ async function testRestApi() {
         const loginRes = await axios.post(`${BASE_URL}/login`, { username, password });
         console.log('Response:', loginRes.data);
         if (!loginRes.data.success) throw new Error('Login failed');
+        
+        // [Refactor] Verify Token
+        if (!loginRes.data.token) throw new Error('No session token returned');
+        const token = loginRes.data.token;
 
-        // 4. Stats
-        console.log(`[3] Getting stats for: ${username}`);
+        // 4. Verify Session Endpoint
+        console.log(`[3] Verifying session for: ${username}`);
+        const verifyRes = await axios.post(`${BASE_URL}/verify`, { username, token });
+        if (!verifyRes.data.success) throw new Error('Session verification failed');
+        console.log('Session verified.');
+
+        // 5. Stats
+        console.log(`[4] Getting stats for: ${username}`);
         const statsRes = await axios.get(`${BASE_URL}/stats/${username}`);
         console.log('Stats retrieved:', Object.keys(statsRes.data).length > 0 ? 'OK' : 'Empty');
 

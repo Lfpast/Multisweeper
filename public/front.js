@@ -2,20 +2,45 @@
 const $ = (id) => document.getElementById(id);
 
 let socket = null;  // 关键：不要在顶部连接！
-let username = localStorage.getItem('username');
+let username = null;
+let nickname = null;
 let currentRoom = null;
 let isHost = false;
 
 // DOM ready
-document.addEventListener('DOMContentLoaded', () => {
-	if (username) {
-		showMain();
-	} 
-	else {
-		$('loginModal').style.display = 'flex';
-		$('registerBtn')?.addEventListener('click', handleRegister);
-		$('loginBtn')?.addEventListener('click', handleLogin);
+document.addEventListener('DOMContentLoaded', async () => {
+	const storedUser = localStorage.getItem('username');
+	const storedToken = localStorage.getItem('token');
+	const storedNickname = localStorage.getItem('nickname');
+
+	if (storedUser && storedToken) {
+		// [Refactor] Verify session with server
+		try {
+			const res = await fetch('/verify', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ username: storedUser, token: storedToken })
+			});
+			const data = await res.json();
+            
+			if (data.success) {
+				username = storedUser;
+				nickname = storedNickname || storedUser;
+				showMain();
+				return;
+			}
+		} catch (e) {
+			console.error('Session check failed:', e);
+		}
 	}
+
+	// If verification failed or no token, clear and show login
+	localStorage.removeItem('username');
+	localStorage.removeItem('token');
+	localStorage.removeItem('nickname');
+	$('loginModal').style.display = 'flex';
+	$('registerBtn')?.addEventListener('click', handleRegister);
+	$('loginBtn')?.addEventListener('click', handleLogin);
 });
 
 // ================== Login and Registration ==================
@@ -26,13 +51,16 @@ async function handleRegister() {
 	if (!u || !p) return msg('Please fill in username and password', '#f66');
 
 	// [Refactor] 注册逻辑：后端现在使用对象存储
-	// POST /register { username, password, name } -> { success: true/false }
+	// POST /register { username, password, name } -> { success: true/false, name }
 	const res = await fetch('/register', { 
 		method: 'POST', 
 		headers: { 'Content-Type': 'application/json' }, 
 		body: JSON.stringify({ username: u, password: p, name: n || u }) 
 	});
 	const data = await res.json();
+	if (data.success) {
+		localStorage.setItem('nickname', n || u);
+	}
 	msg(data.success ? 'Registration successful! Please log in' : (data.msg || 'Registration failed'), data.success ? '#6f6' : '#f66');
 }
 
@@ -42,13 +70,16 @@ async function handleLogin() {
 	if (!u || !p) return msg('Please fill in username and password', '#f66');
 
 	// [Refactor] 登录逻辑：后端现在使用对象存储，但 API 接口保持不变
-	// POST /login { username, password } -> { success: true, username: ... }
+	// POST /login { username, password } -> { success: true, username: ..., name: ... }
 	const res = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
 	const data = await res.json();
 
 	if (data.success) {
 		username = u;
+		nickname = data.name || u;
 		localStorage.setItem('username', u);
+		localStorage.setItem('token', data.token); // [Refactor] Save token
+		localStorage.setItem('nickname', nickname);
 		showMain();  // 登录成功 → 进入大厅
 	} else {
 		msg(data.msg || 'Incorrect username or password', '#f66');
@@ -65,7 +96,7 @@ function msg(text, color) {
 function showMain() {
 	$('loginModal').style.display = 'none';
 	$('mainPage').style.display = 'block';
-	$('welcomeUser').textContent = username;
+	$('welcomeUser').textContent = nickname || username;
 
 	// 关键修复：每次进入大厅都重新连接 socket！
 	if (!socket || !socket.connected) {
@@ -84,6 +115,7 @@ function showMain() {
 function bindLogout() {
 	$('logoutBtn').onclick = () => {
 		localStorage.removeItem('username');
+        localStorage.removeItem('token');
 		location.reload();
 	};
 }

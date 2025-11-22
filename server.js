@@ -2,6 +2,7 @@ const express = require('express');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const fs = require('fs');
 const fsPromises = fs.promises;
 
@@ -91,14 +92,25 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const users = await readUsers();
-    
-    // [前端注意] 数据结构变更：直接通过 key 获取用户对象
+    // 直接通过 key 获取用户对象
     const user = users[username];
-    
     if (!user || !await bcrypt.compare(password, user.password)) {
         return res.json({ success: false, msg: 'Invalid credentials' });
     }
-    res.json({ success: true, username });
+    // 生成 Session Token
+    const token = crypto.randomBytes(16).toString('hex');
+    SESSIONS.set(token, username);
+    // 返回昵称 name 字段
+    res.json({ success: true, username, name: user.name, token });
+});
+
+app.post('/verify', (req, res) => {
+    const { username, token } = req.body;
+    if (SESSIONS.has(token) && SESSIONS.get(token) === username) {
+        res.json({ success: true });
+    } else {
+        res.json({ success: false });
+    }
 });
 
 app.get('/stats/:username', async (req, res) => {
@@ -113,6 +125,7 @@ app.get('/stats/:username', async (req, res) => {
 // 内存中的房间状态 (用于实时游戏逻辑)
 // 注意：持久化的 lobbies.json 主要用于大厅列表展示，实时状态存在内存中
 const rooms = new Map();
+const SESSIONS = new Map(); // token -> username
 
 // 启动时从 lobbies.json 加载房间到内存 (可选，如果需要重启后恢复房间)
 // 目前逻辑是重启后房间清空，lobbies.json 仅作为持久化记录
