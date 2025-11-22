@@ -29,8 +29,9 @@ function ensureDbAndFiles() {
     }
     // 初始化 users.json
     const usersPath = 'db/users.json';
+    // [前端注意] 数据结构变更：现在初始化为对象 {} 而不是数组 []
     if (!fs.existsSync(usersPath) || fs.readFileSync(usersPath, 'utf-8').trim() === '') {
-        fs.writeFileSync(usersPath, '[]');
+        fs.writeFileSync(usersPath, '{}');
     }
     // 初始化 lobbies.json
     const lobbiesPath = 'db/lobbies.json';
@@ -45,7 +46,8 @@ ensureDbAndFiles();
 // 辅助函数：读取和写入
 async function readUsers() {
     const data = await fsPromises.readFile('db/users.json', 'utf-8');
-    return JSON.parse(data || '[]');
+    // [前端注意] 数据结构变更：返回对象 {}
+    return JSON.parse(data || '{}');
 }
 
 async function writeUsers(users) {
@@ -64,19 +66,24 @@ async function writeLobbies(lobbies) {
 // ==================== REST API ====================
 
 app.post('/register', async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.json({ success: false, msg: 'Missing fields' });
+    // [Refactor] 新增 name 字段用于昵称
+    const { username, password, name } = req.body;
+    if (!username || !password || !name) return res.json({ success: false, msg: 'Missing fields' });
 
     const users = await readUsers();
-    const existing = users.find(u => u.username === username);
-    if (existing) return res.json({ success: false, msg: 'User exists' });
+    
+    // [前端注意] 数据结构变更：直接通过 key 查找用户
+    if (users[username]) return res.json({ success: false, msg: 'User exists' });
 
     const hash = await bcrypt.hash(password, 10);
-    users.push({
-        username,
+    
+    // [前端注意] 数据结构变更：使用 username 作为 key 存储
+    users[username] = {
+        name: name,
         password: hash,
         stats: Object.fromEntries(Object.keys(MODES).map(mode => [mode, { games: 0, wins: 0, bestTime: Infinity }]))
-    });
+    };
+    
     await writeUsers(users);
     res.json({ success: true });
 });
@@ -84,7 +91,10 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const users = await readUsers();
-    const user = users.find(u => u.username === username);
+    
+    // [前端注意] 数据结构变更：直接通过 key 获取用户对象
+    const user = users[username];
+    
     if (!user || !await bcrypt.compare(password, user.password)) {
         return res.json({ success: false, msg: 'Invalid credentials' });
     }
@@ -93,7 +103,8 @@ app.post('/login', async (req, res) => {
 
 app.get('/stats/:username', async (req, res) => {
     const users = await readUsers();
-    const user = users.find(u => u.username === req.params.username);
+    // [前端注意] 数据结构变更：直接通过 key 获取
+    const user = users[req.params.username];
     res.json(user?.stats || {});
 });
 
@@ -120,11 +131,15 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         
         // 1. 更新内存状态
+        // [Refactor] 获取用户昵称
+        const users = await readUsers();
+        const nickname = users[username]?.name || username;
+
         const roomData = {
             roomName,
             hostId: socket.id,
             players: new Set([socket.id]),
-            usernameMap: new Map([[socket.id, username]]),
+            playerInfo: new Map([[socket.id, { username, name: nickname }]]), // Store full info
             settings: { mode: 'classic' }
         };
         rooms.set(roomId, roomData);
@@ -135,14 +150,14 @@ io.on('connection', (socket) => {
             id: roomId,
             name: roomName,
             host: username,
-            players: [username],
+            players: [username], // Keep simple list for persistence or update if needed
             settings: { mode: 'classic' },
             status: 'waiting'
         };
         await writeLobbies(lobbies);
 
         socket.emit('lobbyCreated', { roomId, roomName });
-        io.to(roomId).emit('playersUpdate', [username]);
+        io.to(roomId).emit('playersUpdate', Array.from(roomData.playerInfo.values()));
     });
 
     socket.on('joinLobby', async (roomId) => {
@@ -154,9 +169,13 @@ io.on('connection', (socket) => {
             return socket.emit('joinError', 'Room not found or full');
         }
 
+        // [Refactor] 获取用户昵称
+        const users = await readUsers();
+        const nickname = users[username]?.name || username;
+
         socket.join(upperId);
         room.players.add(socket.id);
-        room.usernameMap.set(socket.id, username);
+        room.playerInfo.set(socket.id, { username, name: nickname });
 
         // 更新持久化存储
         const lobbies = await readLobbies();
@@ -165,7 +184,7 @@ io.on('connection', (socket) => {
             await writeLobbies(lobbies);
         }
 
-        io.to(upperId).emit('playersUpdate', Array.from(room.usernameMap.values()));
+        io.to(upperId).emit('playersUpdate', Array.from(room.playerInfo.values()));
         socket.emit('joinedLobby', { roomId: upperId, roomName: room.roomName });
         socket.emit('modeSet', room.settings.mode);
     });
@@ -294,7 +313,7 @@ io.on('connection', (socket) => {
             if (room.players.has(socket.id)) {
                 // 1. 从内存移除
                 room.players.delete(socket.id);
-                room.usernameMap.delete(socket.id);
+                room.playerInfo.delete(socket.id);
 
                 // 2. 更新持久化存储
                 const lobbies = await readLobbies();
@@ -313,7 +332,7 @@ io.on('connection', (socket) => {
                 }
 
                 // 3. 更新房间名单
-                io.to(roomId).emit('playersUpdate', Array.from(room.usernameMap.values()));
+                io.to(roomId).emit('playersUpdate', Array.from(room.playerInfo.values()));
 
                 // 4. 房主离开处理
                 if (room.hostId === socket.id) {

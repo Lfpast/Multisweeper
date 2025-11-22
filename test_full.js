@@ -1,6 +1,8 @@
 const axios = require('axios');
 const { io } = require('socket.io-client');
 const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 const BASE_URL = 'http://localhost:8000';
 let serverProcess;
@@ -13,42 +15,71 @@ async function startServer() {
     serverProcess = spawn('node', ['server.js'], { stdio: 'inherit', shell: true });
     
     // Wait for server to be ready
-    // Since we use inherit, we can't grep stdout easily, so we just wait a bit
     await sleep(3000);
 }
 
 async function stopServer() {
     if (serverProcess) {
         console.log('>>> Stopping Server...');
-        // On Windows, killing the shell might not kill the node process if not careful, 
-        // but usually tree-kill is needed. For simple test, we try .kill()
         serverProcess.kill();
-        // Force kill if needed
         try {
              process.kill(serverProcess.pid);
         } catch(e) {}
     }
 }
 
+async function verifyDataStructure(username, expectedName) {
+    console.log('[Verify] Checking db/users.json structure...');
+    try {
+        const dbPath = path.join(__dirname, 'db', 'users.json');
+        const data = fs.readFileSync(dbPath, 'utf-8');
+        const users = JSON.parse(data);
+
+        if (Array.isArray(users)) {
+            throw new Error('Data structure mismatch: users.json is an Array, expected Object.');
+        }
+
+        if (!users[username]) {
+            throw new Error(`User ${username} not found in DB keys.`);
+        }
+
+        // Verify Name/Nickname
+        const storedName = users[username].name;
+        const targetName = expectedName || username;
+        if (storedName !== targetName) {
+            throw new Error(`User name mismatch. Expected "${targetName}", got "${storedName}"`);
+        }
+
+        console.log(`[Verify] Data structure is correct. Name "${storedName}" matches.`);
+    } catch (e) {
+        console.error('[Verify] Failed:', e.message);
+        throw e;
+    }
+}
+
 async function testRestApi() {
     console.log('\n=== Testing REST API ===');
     const username = `user_${Date.now()}`;
+    const nickname = `Nick_${Date.now()}`; // New: Test Nickname
     const password = 'password123';
 
     try {
-        // 1. Register
-        console.log(`[1] Registering user: ${username}`);
-        const regRes = await axios.post(`${BASE_URL}/register`, { username, password });
+        // 1. Register with Nickname
+        console.log(`[1] Registering user: ${username} with nickname: ${nickname}`);
+        const regRes = await axios.post(`${BASE_URL}/register`, { username, password, name: nickname });
         console.log('Response:', regRes.data);
         if (!regRes.data.success) throw new Error('Registration failed');
 
-        // 2. Login
+        // 2. Verify DB Structure (Check if nickname is stored)
+        await verifyDataStructure(username, nickname);
+
+        // 3. Login
         console.log(`[2] Logging in user: ${username}`);
         const loginRes = await axios.post(`${BASE_URL}/login`, { username, password });
         console.log('Response:', loginRes.data);
         if (!loginRes.data.success) throw new Error('Login failed');
 
-        // 3. Stats
+        // 4. Stats
         console.log(`[3] Getting stats for: ${username}`);
         const statsRes = await axios.get(`${BASE_URL}/stats/${username}`);
         console.log('Stats retrieved:', Object.keys(statsRes.data).length > 0 ? 'OK' : 'Empty');
@@ -102,8 +133,11 @@ async function testSocketFlow(username1) {
         socket1.on('playersUpdate', (players) => {
             console.log(`[Socket 1] Players Update: ${JSON.stringify(players)}`);
             
-            // Check if both players are in
-            if (players.includes(username1) && players.includes(username2)) {
+            // [Refactor] Check if both players are in (players is now array of objects)
+            const p1In = players.some(p => p.username === username1);
+            const p2In = players.some(p => p.username === username2);
+
+            if (p1In && p2In) {
                 console.log('>>> Both players joined successfully!');
                 
                 // Test Disconnect Logic

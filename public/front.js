@@ -21,10 +21,17 @@ document.addEventListener('DOMContentLoaded', () => {
 // ================== Login and Registration ==================
 async function handleRegister() {
 	const u = $('username').value.trim();
+	const n = $('nickname').value.trim();
 	const p = $('password').value;
 	if (!u || !p) return msg('Please fill in username and password', '#f66');
 
-	const res = await fetch('/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+	// [Refactor] 注册逻辑：后端现在使用对象存储
+	// POST /register { username, password, name } -> { success: true/false }
+	const res = await fetch('/register', { 
+		method: 'POST', 
+		headers: { 'Content-Type': 'application/json' }, 
+		body: JSON.stringify({ username: u, password: p, name: n || u }) 
+	});
 	const data = await res.json();
 	msg(data.success ? 'Registration successful! Please log in' : (data.msg || 'Registration failed'), data.success ? '#6f6' : '#f66');
 }
@@ -34,6 +41,8 @@ async function handleLogin() {
 	const p = $('password').value;
 	if (!u || !p) return msg('Please fill in username and password', '#f66');
 
+	// [Refactor] 登录逻辑：后端现在使用对象存储，但 API 接口保持不变
+	// POST /login { username, password } -> { success: true, username: ... }
 	const res = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
 	const data = await res.json();
 
@@ -143,8 +152,9 @@ function setupSocketEvents() {
 		const list = $('playersList');
 		list.innerHTML = '';
 		players.forEach(p => {
+            // [Refactor] p 现在是对象 { username, name }
 			const li = document.createElement('li');
-			li.innerHTML = `${p} ${p === username ? '<span style="color:#0af">(You)</span>' : ''}`;
+			li.innerHTML = `${p.name} ${p.username === username ? '<span style="color:#0af">(You)</span>' : ''}`;
 			list.appendChild(li);
 		});
 	});
@@ -156,23 +166,38 @@ function setupSocketEvents() {
 	socket.on('joinError', (msg) => {
 		alert('Join failed: ' + msg);
 	});
+
+    // =====================================================================================
+    // [Refactor] 新增游戏交互逻辑监听
+    // 对应 Server 端的新增功能开发区
+    // =====================================================================================
+	// TODOs referred to the server.js
 }
 
 // ================== Stats, Theme, Settings (保持不变) ==================
 async function loadStats() {
 	try {
+		// [Refactor] 获取统计数据：后端现在直接通过 key 获取用户对象
+		// GET /stats/:username -> { simple: {...}, classic: {...} }
 		const res = await fetch(`/stats/${username}`);
 		const stats = await res.json();
 		const div = $('statsDashboard');
 		let html = '<table><tr><th>Game Mode</th><th>Total Games</th><th>Wins</th><th>Win Rate</th><th>Fastest Time</th></tr>';
-		for (const [mode, s] of Object.entries(stats)) {
-			const rate = s.games ? (s.wins / s.games * 100).toFixed(1) : 0;
-			const best = s.bestTime === Infinity ? '-' : (s.bestTime / 1000).toFixed(1) + 's';
-			html += `<tr><td>${mode.charAt(0).toUpperCase() + mode.slice(1)}</td><td>${s.games}</td><td>${s.wins}</td><td>${rate}%</td><td>${best}</td></tr>`;
+		
+		// [Refactor] 确保 stats 是对象且不为空
+		if (stats && Object.keys(stats).length > 0) {
+			for (const [mode, s] of Object.entries(stats)) {
+				const rate = s.games ? (s.wins / s.games * 100).toFixed(1) : 0;
+				const best = s.bestTime === Infinity || s.bestTime === null ? '-' : (s.bestTime / 1000).toFixed(1) + 's';
+				html += `<tr><td>${mode.charAt(0).toUpperCase() + mode.slice(1)}</td><td>${s.games}</td><td>${s.wins}</td><td>${rate}%</td><td>${best}</td></tr>`;
+			}
+			div.innerHTML = html + '</table>';
+		} else {
+			div.textContent = 'No stats available yet.';
 		}
-		div.innerHTML = html + '</table>';
 	} catch (e) {
-		$('statsDashboard').textContent = 'No stats available';
+		console.error('Load stats error:', e);
+		$('statsDashboard').textContent = 'Error loading stats';
 	}
 }
 
