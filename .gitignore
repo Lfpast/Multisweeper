@@ -33,5 +33,3 @@ Thumbs.db
 db/
 db.json
 
-
-test_auth.py
