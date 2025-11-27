@@ -8,23 +8,27 @@
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-  <!-- Login / Registration Module -->
+  <!-- Login / Registration Modal -->
   <div id="loginModal" class="modal">
     <div class="modal-content">
       <h1>Multisweeper</h1>
-      <p>Multisweeper Game</p>
+      <p style="margin:10px 0 20px; color:#666;">Multiplayer Minesweeper Game</p>
+      
       <input type="text" id="username" placeholder="Username (Unique ID)" autocomplete="off">
       <input type="text" id="nickname" placeholder="Nickname (Display Name)" autocomplete="off">
-      <input type="password" id="password" placeholder="Password">
+      <input type="password" id="password" placeholder="Password" autocomplete="off">
+      
       <div class="btn-group">
-        <button id="registerBtn">Register</button>
-        <button id="loginBtn">Login</button>
+        <button id="registerBtn" class="big-btn">Register</button>
+        <button id="loginBtn" class="big-btn">Login</button>
       </div>
-      <p id="loginMsg"></p>
+      
+      <!-- 关键：这个提示框必须存在！ -->
+      <p id="loginMsg" style="margin-top:15px; min-height:24px; font-weight:bold; opacity:0; transition:opacity 0.5s;"></p>
     </div>
   </div>
 
-  <!-- Main Screen -->
+  <!-- Main Lobby Page -->
   <div id="mainPage" style="display:none">
     <div class="header">
       <h1>Multisweeper</h1>
@@ -36,53 +40,75 @@
       <div class="left-panel">
         <h2>Welcome, <span id="welcomeUser"></span>!</h2>
 
-        <!-- 第一优先：加入房间 -->
         <h3 style="margin:20px 0 10px;">Join a Room</h3>
         <div class="join-box" style="margin-bottom:25px;">
-          <input type="text" id="roomInput" placeholder="Enter Room ID" style="flex:1;">
+          <input type="text" id="roomInput" placeholder="Enter Room ID">
           <button id="joinLobbyBtn">Join Room</button>
         </div>
 
-        <!-- 第二优先：创建房间 -->
         <h3 style="margin:20px 0 10px;">Or Create New Room</h3>
-        <input type="text" id="roomNameInput" placeholder="Room Name (optional)" style="width:100%; padding:12px; margin-bottom:12px; border-radius:8px; border:1px solid var(--border); box-sizing:border-box;">
+        <input type="text" id="roomNameInput" placeholder="Room Name (optional)">
         <button id="createLobbyBtn" class="big-btn">Create Room</button>
 
-        <!-- Host Controls -->
         <div id="hostControls" style="display:none; margin-top:25px;">
           <h3>Game Mode</h3>
           <select id="modeSelect">
-            <option value="classic">Classic (8*8, 10 mines)</option>
-            <option value="simple">Simple (9*9, 10 mines)</option>
-            <option value="medium">Medium (16*16, 40 mines)</option>
-            <option value="expert">Expert (30*16, 99 mines)</option>
+            <option value="classic">Classic (8×8, 10 mines)</option>
+            <option value="simple">Simple (9×9, 10 mines)</option>
+            <option value="medium">Medium (16×16, 40 mines)</option>
+            <option value="expert">Expert (30×16, 99 mines)</option>
           </select>
           <button id="startGameBtn" class="big-btn" style="margin-top:12px;">Start Game</button>
         </div>
 
-        <!-- Room Info -->
         <div id="roomInfo" style="display:none; margin-top:25px; padding:18px; background:rgba(0,0,0,0.06); border-radius:12px;">
           <div style="margin-bottom:12px;">
             <div style="margin-bottom:8px;"><strong>Room Name:</strong> <span id="currentRoomName" style="color:var(--accent); font-weight:bold; font-size:18px;"></span></div>
             <div><strong>Room ID:</strong> 
-              <span id="currentRoomId" style="font-family:monospace; background:#0001; padding:4px 8px; border-radius:6px; font-size:15px;"></span>
+              <span id="currentRoomId" style="font-family:monospace; background:#0001; padding:4px 8px; border-radius:6px;"></span>
               <button id="copyRoomBtn" style="margin-left:10px; padding:4px 10px; font-size:13px;">Copy ID</button>
             </div>
           </div>
-          <p style="margin:15px 0 8px 0; font-weight:600;">Players in Room:</p>
+          <p style="margin:15px 0 8px 0; font-weight:600;">Players:</p>
           <ul id="playersList" style="margin:0; padding-left:20px;"></ul>
         </div>
       </div>
 
       <!-- Right Panel -->
       <div class="right-panel">
-        <h3>Personal Statistics</h3>
-        <div id="statsDashboard">Loading...</div>
+        <div id="personalStats">
+          <h3>Personal Statistics</h3>
+  
+          <div class="stat-row">
+            <span class="stat-label">Games Played</span>
+            <span id="statGamesPlayed" class="stat-value">0</span>
+          </div>
+  
+          <div class="stat-row">
+            <span class="stat-label">Games Won</span>
+            <span id="statGamesWon" class="stat-value">0</span>
+          </div>
+  
+          <div class="stat-row">
+            <span class="stat-label">Win Rate</span>
+            <span id="statWinRate" class="stat-value">0%</span>
+          </div>
+  
+          <div class="stat-row">
+            <span class="stat-label">Best Time</span>
+            <span id="statBestTime" class="stat-value">--:--</span>
+          </div>
+  
+          <div class="stat-row">
+            <span class="stat-label">Total Play Time</span>
+            <span id="statTotalTime" class="stat-value">0h 0m</span>
+          </div>
+        </div>
 
         <h3 style="margin-top: 32px;">Settings</h3>
         <div class="setting-item">
           <span class="setting-text">Theme</span>
-          <select id="themeSelect" class="theme-select">
+          <select id="themeSelect">
             <option value="classic">Classic White</option>
             <option value="desert">Desert</option>
             <option value="garden">Garden</option>
@@ -92,21 +118,82 @@
         <h3 style="margin-top: 32px;">Gameplay Settings</h3>
         <div class="gameplay-settings">
           <label class="setting-item">
-            <input type="checkbox" id="autoReveal">
-            <span class="setting-text">Auto Reveal on Single Click</span>
+            <input type="checkbox" id="autoRevealBlank">
+            <span class="setting-text">Auto Reveal Blank Areas</span>
           </label>
           <label class="setting-item">
-            <input type="checkbox" id="showTimer">
+            <input type="checkbox" id="showTimer" checked>
             <span class="setting-text">Show Timer</span>
           </label>
           <div class="setting-item volume-control">
             <span class="setting-text">Volume</span>
             <input type="range" id="volumeSlider" min="0" max="100" value="70">
-            <span id="volumeValue" class="volume-value">70%</span>
+            <span id="volumeValue">70%</span>
           </div>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Game Page -->
+  <div id="gamePage" style="display:none; height:100vh; position:relative;">
+    <div class="header">
+      <h1>Multisweeper - Game</h1>
+      <button id="leaveGameBtn">Leave Room</button>
+    </div>
+
+    <div class="game-container">
+      <canvas id="boardCanvas"></canvas>
+
+      <div class="game-info">
+        <h3>Game Info</h3>
+        <p><strong>Room Name:</strong> <span id="gameRoomName"></span></p>
+        <p><strong>Room ID:</strong> <span id="gameRoomID"></span> <button id="copyGameRoomBtn">Copy</button></p>
+  
+        <p><strong>Mines Remaining:</strong> <span id="minesLeft">0</span></p>
+        <p id="timerDisplay" style="display:none;"><strong>Time:</strong> <span id="gameTimer">00:00</span></p>
+  
+        <p><strong>Players:</strong></p>
+        <ul id="gamePlayersList">
+        </ul>
+  
+        <button id="cheatBtn">Cheat (C)</button>
+      </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="overModal" class="modal" style="display:none;">
+      <div class="modal-content" style="max-width:520px;">
+        <h2 id="overTitle">Game Over!</h2>
+        <p id="overMessage"></p>
+        <div id="overStats" style="margin:20px 0;"></div>
+        <button id="startNewGameBtn" class="big-btn" style="background:#2ecc71; display:none;">Start New Game</button> 
+        <button id="restartOverBtn" class="big-btn">Play Again</button>
+        <button id="backToLobbyBtn">Back to Lobby</button>
+      </div>
+    </div>
+    <!-- Owner options when clicking Leave Room -->
+    <div id="ownerCloseModal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <p>Room owner options:</p>
+        <div class="modal-actions">
+          <button id="continueBtn">Continue Game</button>
+          <button id="closeRoomBtn">Close the Room</button>
+          <button id="cancelCloseBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- When server closes room, everybody gets this -->
+    <div id="roomClosedModal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <p id="roomClosedMsg">Room Owner Close the Game</p>
+        <div class="modal-actions">
+          <button id="backToLobbyBtn">Back to Lobby</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script src="front.js"></script>

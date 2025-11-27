@@ -186,20 +186,54 @@ io.on('connection', (socket) => {
         const users = await readUsers();
         const nickname = users[username]?.name || username;
 
+        // 在 socket.join(upperId) 之前，清理房间中可能已存在的相同 username（比如刷新重连的旧 socket）
+        for (const [sid, info] of room.playerInfo.entries()) {
+            if (info.username === username) {
+                room.playerInfo.delete(sid);
+                room.players.delete(sid);
+                // （也可以尝试通知旧 socket）但我们只清理数据结构即可
+            }
+        }
+
         socket.join(upperId);
         room.players.add(socket.id);
         room.playerInfo.set(socket.id, { username, name: nickname });
 
-        // 更新持久化存储
+        // 更新持久化存储（仅在不存在时加入）
         const lobbies = await readLobbies();
         if (lobbies[upperId]) {
-            lobbies[upperId].players.push(username);
-            await writeLobbies(lobbies);
+            if (!lobbies[upperId].players.includes(username)) {
+                lobbies[upperId].players.push(username);
+                await writeLobbies(lobbies);
+            }
         }
 
         io.to(upperId).emit('playersUpdate', Array.from(room.playerInfo.values()));
         socket.emit('joinedLobby', { roomId: upperId, roomName: room.roomName });
         socket.emit('modeSet', room.settings.mode);
+
+        // [新增] 如果房间游戏已经开始，立即发送当前状态给新加入的玩家
+        if (room.state && room.state.board) {
+            // 发送游戏开始信号（带上当前的棋盘和揭开状态）
+            socket.emit('gameStarted', {
+                board: room.state.board,
+                revealed: room.state.revealed,
+                flagged: room.state.flagged,
+                roomId: upperId,
+                mode: room.settings.mode,
+                startTime: room.state.startTime
+            });
+
+            // 如果游戏其实已经结束了（比如看着残局），也发送结束状态
+            if (room.state.gameOver) {
+                 socket.emit('gameOver', { 
+                    winner: room.state.winner,
+                    bomb: room.state.bombPos, 
+                    board: room.state.board, // 确保传回 board
+                    revealed: room.state.revealed
+                });
+            }
+        }
     });
 
     socket.on('setMode', async ({ roomId, mode }) => {
@@ -224,7 +258,7 @@ io.on('connection', (socket) => {
             const { w, h, m } = MODES[room.settings.mode];
             const board = generateBoard(w, h, m);
             const revealed = Array(h).fill().map(() => Array(w).fill(false));
-            const flagged = Array(h).fill().map(() => Array(w).fill(false));
+            const flagged = Array(h).fill().map(() => Array(w).fill(0));
 
             room.state = {
                 board,
@@ -246,6 +280,31 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('restartGame', (roomId) => {
+        const room = rooms.get(roomId);
+        // 只有房主可以重置，或者允许任何人重置(看你需求，这里暂定房主)
+        // 为了方便测试，暂时允许房间内任何人触发，或者你可以加上 && room.hostId === socket.id
+        if (room) {
+            // 关键：重置服务器端的游戏结束状态
+            room.state.gameOver = false;
+            room.state.winner = null;
+            
+            // 重置盘面状态 (清空已翻开和旗子，但保留 board 炸弹位置不变)
+            const h = room.state.board.length;
+            const w = room.state.board[0].length;
+            room.state.revealed = Array(h).fill().map(() => Array(w).fill(false));
+            room.state.flagged = Array(h).fill().map(() => Array(w).fill(0));
+            room.state.startTime = Date.now();
+
+            // 通知所有客户端游戏已重置
+            io.to(roomId).emit('gameRestarted', { 
+                startTime: room.state.startTime,
+                revealed: room.state.revealed,
+                flagged: room.state.flagged
+            });
+        }
+    });
+
     // =====================================================================================
     // [新增功能开发区] 待前端/全栈同学实现的交互逻辑
     // 目标：实现 README 中描述的实时协作、信号系统、自定义模式及胜负判定
@@ -257,12 +316,40 @@ io.on('connection', (socket) => {
         const room = rooms.get(roomId);
         if (!room || !room.state || room.state.gameOver) return;
 
+        const board = room.state.board;
+        const revealed = room.state.revealed;
+        const flagged = room.state.flagged;
+
         // TODO 1: 获取 room.state.board[r][c] 的值
+
+        if (revealed[r][c] || flagged[r][c])  return;
+
         // TODO 2: 如果是雷 (-1):
         //    - 设置 room.state.gameOver = true
         //    - 更新统计数据 (stats) 记录失败
         //    - 广播 'gameOver' 事件: io.to(roomId).emit('gameOver', { winner: false, bomb: {r, c} })
-        
+
+        if (board[r][c] === -1) {
+            room.state.gameOver = true;
+            room.state.winner = false;
+            room.state.bombPos = { r, c };
+            
+            // Show all mines to all the players
+            for (let y = 0; y < board.length; y++) {
+                for (let x = 0; x < board[0].length; x++) {
+                    if (board[y][x] === -1) revealed[y][x] = true;
+                }
+            }
+
+            io.to(roomId).emit('gameOver', { 
+                winner: false, 
+                bomb: { r, c },
+                board: room.state.board,
+                revealed: room.state.revealed
+            });
+            return;
+        }
+
         // TODO 3: 如果是数字 (>0):
         //    - 仅更新 room.state.revealed[r][c] = true
         //    - 广播 'boardUpdate' 事件: io.to(roomId).emit('boardUpdate', { revealed: room.state.revealed })
@@ -271,19 +358,79 @@ io.on('connection', (socket) => {
         //    - 执行 Flood Fill 算法，递归翻开周围所有空白及边缘数字
         //    - 更新 room.state.revealed
         //    - 广播 'boardUpdate'
+
+        if (board[r][c] === 0) {
+            const stack = [[c, r]];
+            while (stack.length) {
+                const [x, y] = stack.pop();
+                if (x < 0 || x >= board[0].length || y < 0 || y >= board.length) continue;
+                if (revealed[y][x] || flagged[y][x]) continue;
+
+                revealed[y][x] = true;
+
+                if (board[y][x] === 0) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            if (dx === 0 && dy === 0) continue;
+                            stack.push([x + dx, y + dy]);
+                        }
+                    }
+                }
+            }
+        } else {
+            revealed[r][c] = true;
+        }
         
         // TODO 5: 检查胜利条件 (所有非雷格子都已翻开)
         //    - 若胜利: 更新统计数据, 广播 'gameOver' { winner: true }
+
+        let win = true;
+        for (let y = 0; y < board.length; y++) {
+            for (let x = 0; x < board[y].length; x++) {
+                if (board[y][x] !== -1 && !revealed[y][x]) {
+                    win = false;
+                    break;
+                }
+            }
+            if (!win) break;
+        }
+
+        if (win) {
+            room.state.gameOver = true;
+            room.state.winner = true;
+            io.to(roomId).emit('gameOver', { 
+                winner: true,
+                time: Date.now() - room.state.startTime
+            });
+        }
+
+        // Broadcast the updated revealed state
+        io.to(roomId).emit('boardUpdate', {
+            revealed: room.state.revealed,
+            flagged: room.state.flagged
+        });
     });
 
     // 2. 处理插旗/标记 (Gameplay - Flag)
     // 前端调用: socket.emit('toggleFlag', { roomId, r, c })
-    socket.on('toggleFlag', ({ roomId, r, c }) => {
+    socket.on('toggleFlag', ({ roomId, r, c, state }) => {
         const room = rooms.get(roomId);
         if (!room || !room.state || room.state.gameOver) return;
 
         // TODO: 切换 room.state.flagged[r][c] 的状态
         // TODO: 广播 'flagUpdate' 事件: io.to(roomId).emit('flagUpdate', { r, c, isFlagged: ... })
+
+        room.state.flagged[r][c] = state;
+
+        // 广播更新 (注意这里事件名改为了 flagSet，或者保持 flagUpdate 但带上具体值)
+        io.to(roomId).emit('flagUpdate', {
+            r, c,
+            state: state // 发送具体的 0, 1, 2
+        });
+
+        // 更新剩余雷数 (只统计状态为 1 的旗子)
+        const flags = room.state.flagged.flat().filter(f => f === 1).length;
+        io.to(roomId).emit('minesLeftUpdate', room.state.mines - flags);
     });
 
     // 3. 鼠标拖拽信号系统 (Gameplay - Signals)
@@ -293,7 +440,7 @@ io.on('connection', (socket) => {
         // 直接广播给房间内其他人，用于显示临时特效
         socket.to(roomId).emit('signalReceived', { 
             type, r, c, 
-            fromUser: username 
+            fromUser: socket.username 
         });
     });
 
@@ -328,12 +475,14 @@ io.on('connection', (socket) => {
                 room.players.delete(socket.id);
                 room.playerInfo.delete(socket.id);
 
-                // 2. 更新持久化存储
+                // 更新持久化存储：安全地移除所有与该 socket 对应的 username
                 const lobbies = await readLobbies();
                 if (lobbies[roomId]) {
-                    const idx = lobbies[roomId].players.indexOf(username);
-                    if (idx !== -1) lobbies[roomId].players.splice(idx, 1);
-
+                    // 获取要删除的 username（优先从 room.playerInfo 中读取）
+                    const leavingUser = room.playerInfo.get(socket.id)?.username || username;
+                    if (leavingUser) {
+                        lobbies[roomId].players = (lobbies[roomId].players || []).filter(u => u !== leavingUser);
+                    }
                     if (room.players.size === 0) {
                         rooms.delete(roomId);
                         delete lobbies[roomId];
@@ -345,7 +494,10 @@ io.on('connection', (socket) => {
                 }
 
                 // 3. 更新房间名单
-                io.to(roomId).emit('playersUpdate', Array.from(room.playerInfo.values()));
+                io.to(roomId).emit('playersUpdate', {
+                    players: Array.from(room.playerInfo.values()), // 每一项形如 { username, name }
+                    hostUsername: room.playerInfo.get(room.hostId)?.username || null
+                });
 
                 // 4. 房主离开处理
                 if (room.hostId === socket.id) {

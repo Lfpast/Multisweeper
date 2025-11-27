@@ -1,11 +1,12 @@
 /* 默认主题：Classic White */
-:root { 
+:root, [data-theme="classic_white"] { 
   --bg: #f5f7fa;
   --card: #ffffff;
   --text: #2c3e50;
   --accent: #3498db;
   --border: #e1e8ed;
   --shadow: rgba(0,0,0,0.08);
+  background: #f5f7fa; 
 }
 
 [data-theme="desert"] { 
@@ -15,6 +16,7 @@
   --text: #333; 
   --border: #d4c4a4;
   background: #f4e4bc; 
+  color: #333;
 }
 
 /* Garden 花园主题（微软扫雷经典草地风格） */
@@ -79,93 +81,86 @@
   color: white;
   font-weight: bold;
   text-shadow: 0 1px 2px rgba(0,0,0,0.4);
-  border: 1px solid #689f38;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 4px 12px rgba(0,0,0,0.3);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 4px 12px rgba(104,159,56,0.3);
 }
 [data-theme="garden"] .big-btn:hover,
+[data-theme="garden"] #startGameBtn:hover,
 [data-theme="garden"] #joinLobbyBtn:hover,
 [data-theme="garden"] #copyRoomBtn:hover {
   background: linear-gradient(to bottom, #aed581, #8bc34a);
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(104, 159, 56, 0.5);
+  box-shadow: 0 8px 20px rgba(139,195,74,0.5);
 }
 
-/* ====================== 基础布局样式 ====================== */
 body {
-  margin: 0;
-  font-family: Arial, Helvetica, sans-serif;
   background: var(--bg);
   color: var(--text);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
   min-height: 100vh;
-  transition: background 1.2s ease, color 0.6s ease;
+  display: flex;
+  flex-direction: column;
 }
 
-.container { 
-  display: flex; 
-  max-width: 1200px; 
-  margin: 80px auto 20px; 
-  gap: 30px; 
-  padding: 20px; 
-  flex-wrap: wrap; 
+.container {
+  display: flex;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 80px auto 40px;
+  padding: 0 30px;
+  gap: 40px;
 }
 
-.left-panel, .right-panel { 
-  background: var(--card); 
-  padding: 25px; 
-  border-radius: 16px; 
-  flex: 1; 
-  box-shadow: 0 8px 32px var(--shadow);
-  border: 1px solid var(--border);
-  min-width: 300px;
-  backdrop-filter: blur(6px);
+.left-panel, .right-panel {
+  flex: 1;
+  background: var(--card);
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px var(--shadow);
 }
 
-/* Garden 专属卡片样式（更强的草地上的纸片感） */
-[data-theme="garden"] .left-panel,
-[data-theme="garden"] .right-panel {
-  background: rgba(255, 255, 255, 0.94);
-  border: 2px solid #c8e6c9;
-  box-shadow: 0 10px 30px rgba(104, 159, 56, 0.25), 0 0 20px rgba(165, 214, 167, 0.4);
-}
-
-/* 大按钮基础（所有主题通用） */
-.big-btn { 
-  width: 100%; 
-  padding: 16px; 
-  font-size: 20px; 
-  border: none; 
-  border-radius: 12px; 
-  cursor: pointer; 
-  color: white !important; 
-  font-weight: bold; 
-  transition: all 0.3s;
-}
-
-/* Join 和 Copy 按钮通用基础样式 */
-#joinLobbyBtn,
-#copyRoomBtn {
+.big-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 18px;
   border: none;
   color: white;
-  font-weight: bold;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.btn-group button {
+  flex: 1;
+  padding: 12px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
-  border-radius: 8px;
 }
 
-#joinLobbyBtn {
-  padding: 12px 24px;
+.btn-group button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
-#copyRoomBtn {
-  padding: 6px 12px;
-  font-size: 14px;
-}
-
-/* 其他原有样式（未改动） */
-.modal { 
-  position:fixed; inset:0; 
-  background:rgba(0,0,0,0.92); 
-  display:flex; align-items:center; justify-content:center; z-index:999; 
+.modal {
+  position: fixed;
+  top:0; left:0; right:0; bottom:0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index:999; 
 }
 .modal-content { 
   background:#ffffff; padding:40px; border-radius:16px; text-align:center; width:90%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.3); color:#333;
@@ -193,9 +188,28 @@ th {
 }
 
 .header { 
-  display:flex; justify-content:space-between; align-items:center; padding:0 30px; background:rgba(255,255,255,0.95); position:fixed; top:0; left:0; right:0; height:60px; z-index:100; backdrop-filter:blur(12px); border-bottom:1px solid #eee; box-shadow:0 2px 10px rgba(0,0,0,0.05);
+  display:flex; 
+  justify-content:space-between; 
+  align-items:center; 
+  padding:0 30px; 
+  background:rgba(255,255,255,0.95); 
+  position:fixed; 
+  top:0; 
+  left:0; 
+  right:0; 
+  height:60px; 
+  z-index:100; 
+  backdrop-filter:blur(12px); 
+  border-bottom:1px solid #eee; 
+  box-shadow:0 2px 10px rgba(0,0,0,0.05);
+  margin-bottom: 20px;
+  position: relative;
 }
-.header h1 { margin:0; color:var(--accent); font-size:24px; }
+.header h1 { 
+  margin:0; 
+  color:var(--accent); 
+  font-size:24px; 
+}
 
 /* Gameplay Settings 样式 */
 .gameplay-settings {
@@ -274,3 +288,163 @@ th {
   background: rgba(255,255,255,0.95);
   border: 2px solid #a5d6a7;
 }
+
+/* Game Page Specific Styles */
+#gamePage {
+  min-height: 100vh;
+  background: var(--bg);
+  overflow-y: auto; /* 允许滚动，防止大棋盘显示不全 */
+}
+
+.game-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 20px;
+  gap: 30px;
+  margin-top: 20px;
+  min-height: 85vh;
+  box-sizing: border-box;
+}
+
+#boardCanvas {
+  display: block;
+  background: #bbbbbb;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  border-radius: 8px;
+  
+  /* 关键：控制大小为屏幕的一半左右，保持比例 */
+  width: auto;
+  height: auto;
+  /* max-width: 75vw;
+  max-height: 85vh;
+  object-fit: contain; */
+}
+
+.game-info {
+  /* 让右侧信息栏高度自适应，不要撑满 */
+  height: fit-content;
+  /* ...原有其他样式保持不变... */
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 30%;
+  max-width: 300px;
+  background: var(--card);
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+#timerDisplay {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+#cheatBtn {
+  padding: 10px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+#overModal .modal-content {
+  text-align: center;
+}
+
+#overTitle {
+  color: var(--accent);
+  font-size: 32px;
+}
+
+#overMessage {
+  font-size: 18px;
+  margin: 10px 0;
+}
+
+#overStats table {
+  margin: auto;
+}
+
+#rankingsTable table {
+  margin: auto;
+  width: 100%;
+}
+
+#restartOverBtn, #backToLobbyBtn {
+  padding: 12px 24px;
+  margin-top: 20px;
+}
+
+#personalStats {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  backdrop-filter: blur(10px);
+  margin-top: 20px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 12px 0;
+  font-size: 15px;
+}
+
+.stat-label {
+  color: #aaa;
+}
+
+.stat-value {
+  color: #000000;
+  font-weight: bold;
+  min-width: 80px;
+  text-align: right;
+}
+
+.container {
+  display: flex;
+  justify-content: space-between;
+  gap: 30px;
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding-top: 20px;
+}
+
+.left-panel, .right-panel {
+  background: rgba(255,255,255,0.1);
+  padding: 20px;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  /* flex: 1; */
+  width: 50%;
+  max-width: 50%;
+  box-sizing: border-box;
+}
+
+/* .right-panel {
+  min-width: 300px;
+  max-width: 360px;
+} */
+
+[data-theme="desert"] { --bg:#f4e4bc; --card:#e4d4b4; --accent:#cc8800; --text:#333; --border:#d4c4a4; background:#f4e4bc; }
+
+[data-theme="garden"] {
+  --bg:#8bc34a; --card:rgba(255,255,255,0.92); --text:#2e7d32; --accent:#689f38;
+  background: linear-gradient(135deg, #9ccc65 0%, #7cb342 100%);
+}
+
+#volumeValue { margin-left: 10px; min-width: 40px; font-weight: bold; }
+
+/* 强制所有主题下的按钮都重新定义背景 */
+[data-theme="garden"] .big-btn,
+[data-theme="desert"] .big-btn,
+[data-theme="classic"] .big-btn {
+  background: var(--accent) !important; /* 强制使用当前主题的 accent */
+}
+
+.players-list li.me { font-weight: 700; color: var(--accent); }
+.players-list li.host { text-decoration: underline; font-style: italic; }
