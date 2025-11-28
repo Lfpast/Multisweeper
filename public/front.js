@@ -28,6 +28,10 @@ let gameState = {
   chordEffectPositions: [],
   chordPulse: null
 };
+
+const mineExplodeImg = new Image();
+mineExplodeImg.src = 'assets/mine2.svg';
+
 // Mine assets and loading disabled
 // NOTE: We intentionally do not use image-based mines. All image assets under public/assets remain untouched on disk.
 // Try to load an SVG first (scales cleanly); fallback to PNG if not found
@@ -1465,7 +1469,6 @@ function updateMinesLeft() {
   const el = document.getElementById('minesLeft');
   if (!el || !gameState.flagged) return;
 
-  // 计算旗子数量 (状态为 1)
   let flags = 0;
   for (let y = 0; y < gameState.height; y++) {
     for (let x = 0; x < gameState.width; x++) {
@@ -1473,7 +1476,6 @@ function updateMinesLeft() {
     }
   }
   
-  // 强制显示，防止 DOM 元素内容丢失
   el.style.display = 'inline'; 
   el.textContent = Math.max(0, gameState.mines - flags);
 }
@@ -1481,16 +1483,12 @@ function updateMinesLeft() {
 function updateMainPageButtons() {
     const startBtn = $('startGameBtn');
     
-    // 如果有房间ID，且游戏并未结束 (注意：如果不刷新页面，gameState还保留着)
     if (currentRoom) { 
         startBtn.textContent = 'Continue Game';
         startBtn.style.background = '#e67e22'; 
         
-        // 覆盖原本的 onclick (原本是 emit startGame)
         startBtn.onclick = () => {
             showGamePage();
-            // 重新获取一下当前状态，防止离开期间有变化
-            // (如果没有 syncState 接口，至少前端切回去是能看的)
         };
     } else {
         startBtn.textContent = 'Start Game';
@@ -1507,43 +1505,44 @@ function rippleExplosion(centerX, centerY, callback) {
     const ctx = canvas.getContext('2d');
     const ts = gameState.tileSize;
     
-    // 计算最大半径
     const maxRadius = Math.max(gameState.width, gameState.height) * 1.5;
     let radius = 0;
-    const speed = 0.5; // 扩散速度（单位：格子）
+    const speed = 0.5;
 
     function anim() {
-        // 如果页面被关闭或重置，停止动画
         if (!gameState.gameOver) return;
 
         radius += speed;
         
-        // 1. 先重绘底图 (这一步是必须的，清除上一帧的红色圆圈)
         drawBoard(); 
 
-        // 2. 优化：只遍历当前圆环附近的区域，而不是全图遍历（或者简单点，保持全遍历但不做重操作）
-        // 为了性能，我们尽量减少 stroke/fill 调用次数
-        ctx.fillStyle = '#ff4d4d'; 
-        
-        // 遍历所有格子
-        for(let y=0; y<gameState.height; y++) {
-            for(let x=0; x<gameState.width; x++) {
-                // 如果是雷
+        for(let y = 0; y < gameState.height; y++) {
+            for(let x = 0; x < gameState.width; x++) {
                 if (gameState.board[y][x] === -1) {
-                    const dist = Math.sqrt((x-centerX)**2 + (y-centerY)**2);
+                    const dist = Math.sqrt((x - centerX)**2 + (y - centerY)**2);
                     
-                    // 只有当波浪覆盖到这个雷时才画红
                     if (dist < radius) {
-                        ctx.fillRect(x*ts, y*ts, ts, ts);
+                        ctx.fillStyle = 'red';
+
+                        ctx.fillRect(x * ts, y * ts, ts, ts);
                         
-                        // 画个简单的爆炸圈
-                        ctx.beginPath();
-                        ctx.arc(x*ts + ts/2, y*ts + ts/2, ts/3, 0, Math.PI*2);
-                        // 注意：不要在循环里频繁切换 fillStyle，这里为了简单直接画
-                        ctx.save();
-                        ctx.fillStyle = 'darkred';
-                        ctx.fill();
-                        ctx.restore();
+                        if (mineExplodeImg.complete && mineExplodeImg.naturalWidth !== 0) {
+                            const padding = ts * 0.05; 
+                            
+                            ctx.drawImage(
+                                mineExplodeImg, 
+                                x * ts + padding,
+                                y * ts + padding,
+                                ts - padding * 2,
+                                ts - padding * 2
+                            );
+                        } else {
+                            ctx.beginPath();
+                            ctx.arc(x*ts + ts/2, y*ts + ts/2, ts/3, 0, Math.PI*2);
+                            ctx.fillStyle = 'black';
+                            ctx.fill();
+                            ctx.fillStyle = 'red'; 
+                        }
                     }
                 }
             }
