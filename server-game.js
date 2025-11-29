@@ -1,10 +1,13 @@
-import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
+import { shuffle } from "es-toolkit";
 import express from "express";
 import { Server } from "socket.io";
 import { board } from "./core/board.js";
 import { Game } from "./core/game.js";
 import { TileFlag } from "./core/tile.js";
+import fs from "node:fs";
+import bcrypt from "bcryptjs";
+import session from "express-session";
 
 const app = express();
 const httpServer = createServer(app);
@@ -21,6 +24,19 @@ const io = new Server(httpServer, {
 app.use(express.static("public"));
 app.use(express.static("core"));
 app.use(express.json());
+const userSession = session({
+	secret: "user",
+	resave: false,
+	saveUninitialized: false,
+	rolling: true,
+	cookie: { maxAge: 300000 },
+});
+app.use(userSession);
+
+
+// ============
+// === Game ===
+// ============
 
 /**
  * @type {Map<string, Game>}
@@ -35,17 +51,7 @@ const userIndices = new Map();
  */
 const gameEpoch = new Map();
 
-app.post("/create-room", (req, res) => {
-	const { w, h, c } = req.body;
-	if (!w || !h || !c) {
-		return res.status(400).json({ error: "Missing w, h, or c." });
-	}
-	const room = randomUUID();
-	rooms.set(room, new Game(w, h, c));
-	res.json({ room });
-});
 
-// Socket.IO connection handler
 io.on("connection", (socket) => {
 	const user = socket.handshake.query.user;
 	const room = socket.handshake.query.room;
@@ -100,7 +106,11 @@ io.on("connection", (socket) => {
 	const update = () => {
 		const epoch = gameEpoch.get(room);
 		const time = epoch ? Math.floor((Date.now() - epoch) / 1000) : 0;
-		const mine = game.mines - [...board(game.w, game.h)].map(([x, y]) => game.apply(x, y)).filter(t => t === TileFlag).length;
+		const mine =
+			game.mines -
+			[...board(game.w, game.h)]
+				.map(([x, y]) => game.apply(x, y))
+				.filter((t) => t === TileFlag).length;
 		io.to(room).emit("update status", {
 			gameStatus: game.isGameOver(),
 			timeDisplay: time,
@@ -149,7 +159,7 @@ io.on("connection", (socket) => {
 	 */
 	socket.on("signal", ({ type, x, y }) => {
 		console.log(
-			`[${socket.id}] User ${user} sends ${type} at (${x}, ${y}) in room ${room}.`
+			`[${socket.id}] User ${user} sends ${type} at (${x}, ${y}) in room ${room}.`,
 		);
 		io.to(room).emit("signal", { type, x, y });
 	});
@@ -178,7 +188,211 @@ io.on("connection", (socket) => {
 	});
 });
 
-// Start the server
+
+// =============
+// === Lobby ===
+// =============
+
+const Modes = [
+	"simple",
+	"medium",
+	"expert",
+]
+
+/**
+ * @type {Record<string, {
+ * 	 name: string,
+ *   game: string
+ * 	 players: string[],
+ *   w: number,
+ *   h: number,
+ *   c: number,
+ * }>}
+ */
+const lobbies = {};
+
+const randomCode = () => {
+	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	const code = shuffle(chars.split(""));
+	return code.slice(0, 6).join("");
+};
+
+io.of("/lobby").on("connection", (socket) => {
+	const player = socket.handshake.query.player;
+	if (!player || typeof player !== "string") {
+		console.log(`[${socket.id}] Connection rejected: No player provided.`);
+		socket.disconnect();
+		return;
+	}
+
+	console.log(`[${socket.id}] Player ${player} connected to lobby.`);
+
+	socket.emit("update lobbies", { lobbies });
+
+	socket.on("disconnect", (reason) => {
+		Object.entries(lobbies).forEach(([game, lobby]) => {
+			if (lobby.players.includes(player)) {
+				lobby.players = lobby.players.filter((p) => p !== player);
+				io.to(game).emit("user leave", player);
+				if (lobby.players.length === 0) {
+					delete lobbies[game];
+					console.log(
+						`[${socket.id}] Lobby ${game} disappears due to no players.`,
+					);
+				}
+			}
+		});
+		console.log(
+			`[${socket.id}] Player ${player} from lobby (Reason: ${reason})`,
+		);
+	});
+
+	socket.on("create lobby", ({ name, w, h, c }) => {
+		const game = randomCode();
+		lobbies[game] = {
+			name,
+			game,
+			players: [],
+			w,
+			h,
+			c,
+		};
+		socket.emit("create lobby", { game });
+		io.emit("update lobbies", { lobbies });
+		console.log(
+			`[${socket.id}] Player ${player} create lobby ${game} (${name}).`,
+		);
+	});
+
+	socket.on("join lobby", ({ game }) => {
+		const lobby = lobbies[game];
+		if (!lobby) {
+			socket.emit("error", { message: "Lobby not found." });
+			return;
+		}
+
+		if (!lobby.players.includes(player)) {
+			if (lobby.players.length >= 8) {
+				socket.emit("error", { message: "Lobby is full." });
+				return;
+			}
+			lobby.players.push(player);
+		}
+
+		socket.join(game);
+		io.to(game).emit("user join", lobby);
+		console.log(
+			`[${socket.id}] Player ${player} join lobby ${game} (${lobby.name}).`,
+		);
+	});
+
+	socket.on("launch", ({ game }) => {
+		const lobby = lobbies[game];
+		if (!lobby) {
+			socket.emit("error", { message: "Lobby not found." });
+			return;
+		}
+
+		rooms.set(game, new Game(lobby.w, lobby.h, lobby.c));
+
+		io.to(game).emit("launch", { game });
+		console.log(
+			`[${socket.id}] Player ${player} launch game in lobby ${game} (${lobby.name}).`,
+		);
+	});
+});
+
+
+// =============
+// === Login ===
+// =============
+
+/**
+ * @typedef {{
+ *   name: string,
+ *   password: string,
+ *   stats: Record<string, { games: number; wins: number; best: number | null }>
+ * }} User
+ */
+
+/**
+ * @returns {Record<string, User>}
+ */
+function readUsers() {
+	const data = fs.readFileSync("users.json", "utf-8");
+	return JSON.parse(data || "{}");
+}
+
+/**
+ * @param {Record<string, User>} users 
+ */
+function writeUsers(users) {
+	fs.writeFileSync("users.json", JSON.stringify(users, null, 2), "utf-8");
+}
+
+app.post("/register", async (req, res) => {
+	const { username, password, name } = req.body;
+	if (!username || !password || !name) {
+		return res.json({ success: false, msg: "Missing fields" });
+	}
+
+	const users = await readUsers();
+
+	if (users[username]) {
+		return res.json({ success: false, msg: "User already exists" });
+	}
+
+	const passwordHash = await bcrypt.hash(password, 10);
+
+	users[username] = {
+		name: name,
+		password: passwordHash,
+		stats: Object.fromEntries(
+			Modes.map((mode) => [
+				mode,
+				{ games: 0, wins: 0, best: null },
+			]),
+		),
+	};
+
+	await writeUsers(users);
+	res.json({ success: true });
+});
+
+app.post("/login", (req, res) => {
+	const { username, password } = req.body;
+	const users = readUsers();
+
+	const user = users[username];
+	if (!user) {
+		return res.json({ success: false, msg: "User does not exist" });
+	}
+
+	if (!(bcrypt.compareSync(password, user.password))) {
+		return res.json({ success: false, msg: "Incorrect username or password" });
+	}
+
+	// @ts-expect-error  
+	req.session.user = user;
+
+	res.json({ success: true, user });
+});
+
+app.post("/verify", (req, res) => {
+	// @ts-expect-error  
+	const { user } = req.session;
+	if (user) {
+		return res.json({ success: true, user });
+	} else {
+		return res.json({ success: false });
+	}
+});
+
+
+// ==============
+// === Others ===
+// ==============
+
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
 	console.log(`Server listening on port ${PORT}`);
