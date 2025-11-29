@@ -36,7 +36,7 @@ export class Game {
 		this.#board = new Board(w, h);
 		if (!Number.isInteger(c))
 			throw new TypeError(`Count must be an integer, got ${c}`);
-		if (c < 0 || c >= w * h) {
+		if (c < 0 || c > w * h - 9) {
 			throw new RangeError(
 				`Mine count ${c} must be between 0 and ${w * h - 9} for board of size ${w}x${h}`,
 			);
@@ -263,4 +263,18 @@ export class Game {
 	isInitial() {
 		return this.#initial;
 	}
+
+	/**
+	 * Flag all mines on the board. For cheating purposes only.
+	 */
+	cheat() {
+		for (const [x, y] of board(this.w, this.h)) {
+			if (this.#board.get(x, y).t === TileMin) {
+				this.#board.setFlag(x, y, !this.#board.hasFlag(x, y));
+				this.#accumulate([x, y]);
+			}
+		}
+		this.#notify();
+	}
+
 }

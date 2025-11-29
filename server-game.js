@@ -48,18 +48,26 @@ const userIndices = new Map();
  * @type {Map<string, number>}
  */
 const gameEpoch = new Map();
+/**
+ * @type {Map<string, string>}
+ */
+const roomModes = new Map();
+/**
+ * @type {Set<string>}
+ */
+const roomDeads = new Set();
 
 io.on("connection", (socket) => {
 	const user = socket.handshake.query.user;
 	const room = socket.handshake.query.room;
 
 	if (!user || typeof user !== "string") {
-		console.log(`Connection rejected: No user for socket ${socket.id}`);
+		console.log(`[${socket.id}] Connection rejected: No user provided.`);
 		socket.disconnect();
 		return;
 	}
 	if (!room || typeof room !== "string") {
-		console.log(`Connection rejected: No room for socket ${socket.id}`);
+		console.log(`[${socket.id}] Connection rejected: No room provided.`);
 		socket.disconnect();
 		return;
 	}
@@ -67,7 +75,7 @@ io.on("connection", (socket) => {
 	const game = rooms.get(room);
 	if (!game) {
 		console.log(
-			`Connection rejected: Invalid room ${room} for socket ${socket.id}`,
+			`[${socket.id}] Connection rejected: Invalid room ${room}.`,
 		);
 		socket.disconnect();
 		return;
@@ -124,9 +132,40 @@ io.on("connection", (socket) => {
 			gameEpoch.set(room, Date.now());
 			updater = setInterval(update, 1000);
 		}
+
+		const status = game.isGameOver();
+		if (status !== "GAMING" && !roomDeads.has(room)) {
+			roomDeads.add(room);
+			if (updater) clearInterval(updater);
+
+			// Update stats
+			const mode = roomModes.get(room);
+			if (mode && Modes.includes(mode)) {
+				const users = readUsers();
+				const indices = userIndices.get(room);
+				if (!indices) throw new Error("Unreachable");
+				for (const username of indices.keys()) {
+					if (!users[username]) throw new Error("Unreachable");
+					const stats = users[username].stats[mode];
+					if (stats) {
+						stats.games++;
+						if (status === "WIN") {
+							stats.wins++;
+							const epoch = gameEpoch.get(room);
+							const time = epoch ? (Date.now() - epoch) / 1000 : 0;
+							if (stats.best === null || time < stats.best) {
+								stats.best = time;
+							}
+						}
+					}
+				}
+				writeUsers(users);
+				io.of("/lobby").emit("leaderboard update", { mode });
+			}
+		}
 	});
 
-	console.log(`[${socket.id}] User ${user} connect to room ${room}.`);
+	console.log(`[${socket.id}] User ${user} connected to room ${room}.`);
 
 	socket.join(room);
 	socket.to(room).emit("user join", socket.id);
@@ -136,7 +175,7 @@ io.on("connection", (socket) => {
 	 */
 	socket.on("reveal", ({ x, y }) => {
 		console.log(
-			`[${socket.id}] User ${user} reveals tile at (${x}, ${y}) in room ${room}.`,
+			`[${socket.id}] User ${user} revealed tile at (${x}, ${y}) in room ${room}.`,
 		);
 		game.reveal(x, y);
 	});
@@ -146,7 +185,7 @@ io.on("connection", (socket) => {
 	 */
 	socket.on("flag", ({ x, y }) => {
 		console.log(
-			`[${socket.id}] User ${user} flags tile at (${x}, ${y}) in room ${room}.`,
+			`[${socket.id}] User ${user} flagged tile at (${x}, ${y}) in room ${room}.`,
 		);
 		game.flag(x, y);
 	});
@@ -156,7 +195,7 @@ io.on("connection", (socket) => {
 	 */
 	socket.on("signal", ({ type, x, y }) => {
 		console.log(
-			`[${socket.id}] User ${user} sends ${type} at (${x}, ${y}) in room ${room}.`,
+			`[${socket.id}] User ${user} sent signal ${type} at (${x}, ${y}) in room ${room}.`,
 		);
 		io.to(room).emit("signal", { type, x, y });
 	});
@@ -165,17 +204,24 @@ io.on("connection", (socket) => {
 	 * The mouse move event of a player.
 	 */
 	socket.on("move", ({ x, y }) => {
-		console.log(`[${socket.id}] User ${user} moves mouse in room ${room}:`, {
-			x,
-			y,
-		});
+		console.log(
+			`[${socket.id}] User ${user} moved mouse to (${x}, ${y}) in room ${room}.`,
+		);
 		io.to(room).emit("move", { ui: userIndex, x, y });
+	});
+
+	/**
+	 * The cheat event.
+	 */
+	socket.on("cheat", () => {
+		console.log(`[${socket.id}] User ${user} used cheat in room ${room}.`);
+		game.cheat();
 	});
 
 	// Handle disconnection
 	socket.on("disconnect", (reason) => {
 		console.log(
-			`[${socket.id}] User ${user} disconnect from room ${room} (Reason: ${reason})`,
+			`[${socket.id}] User ${user} disconnected from room ${room} (Reason: ${reason})`,
 		);
 		unsubscribe();
 		if (updater !== null) {
@@ -199,6 +245,7 @@ const Modes = ["simple", "medium", "expert"];
  *   w: number,
  *   h: number,
  *   c: number,
+ *   mode: string
  * }>}
  */
 const lobbies = {};
@@ -239,7 +286,7 @@ io.of("/lobby").on("connection", (socket) => {
 		);
 	});
 
-	socket.on("create lobby", ({ name, w, h, c }) => {
+	socket.on("create lobby", ({ name, w, h, c, mode }) => {
 		const game = randomCode();
 		lobbies[game] = {
 			name,
@@ -248,11 +295,12 @@ io.of("/lobby").on("connection", (socket) => {
 			w,
 			h,
 			c,
+			mode,
 		};
 		socket.emit("create lobby", { game });
 		io.of("/lobby").emit("update lobbies", { lobbies });
 		console.log(
-			`[${socket.id}] Player ${player} create lobby ${game} (${name}).`,
+			`[${socket.id}] Player ${player} created lobby ${game} (${name}).`,
 		);
 	});
 
@@ -275,8 +323,30 @@ io.of("/lobby").on("connection", (socket) => {
 		io.of("/lobby").emit("update lobbies", { lobbies });
 		io.of("/lobby").to(game).emit("user join", lobby);
 		console.log(
-			`[${socket.id}] Player ${player} join lobby ${game} (${lobby.name}).`,
+			`[${socket.id}] Player ${player} joined lobby ${game} (${lobby.name}).`,
 		);
+	});
+
+	socket.on("leave lobby", ({ game }) => {
+		const lobby = lobbies[game];
+		if (!lobby) {
+			socket.emit("error", { message: "Lobby not found." });
+			return;
+		}
+		if (lobby.players.includes(player)) {
+			lobby.players = lobby.players.filter((p) => p !== player);
+			socket.leave(game);
+			io.of("/lobby").to(game).emit("user leave", player);
+			io.of("/lobby").emit("update lobbies", { lobbies });
+			if (lobby.players.length === 0) {
+				delete lobbies[game];
+				io.of("/lobby").emit("update lobbies", { lobbies });
+				console.log(
+					`[${socket.id}] Lobby ${game} disappears due to no players.`,
+				);
+			}
+			console.log(`[${socket.id}] Player ${player} left lobby ${game}.`);
+		}
 	});
 
 	socket.on("launch game", ({ game }) => {
@@ -287,11 +357,38 @@ io.of("/lobby").on("connection", (socket) => {
 		}
 
 		rooms.set(game, new Game(lobby.w, lobby.h, lobby.c));
+		if (lobby.mode) {
+			roomModes.set(game, lobby.mode);
+		}
 
-		io.of("/lobby").to(game).emit("launch game", { game });
+		io.of("/lobby").to(game).emit("launch game", { game, mode: lobby.mode });
 		console.log(
-			`[${socket.id}] Player ${player} launch game in lobby ${game} (${lobby.name}).`,
+			`[${socket.id}] Player ${player} launched game in lobby ${game} (${lobby.name}).`,
 		);
+	});
+
+	socket.on("get leaderboard", ({ mode }) => {
+		console.log(
+			`[${socket.id}] Player ${player} requested leaderboard for mode ${mode}.`,
+		);
+		if (!Modes.includes(mode)) return;
+		const users = readUsers();
+		const leaderboard = Object.values(users)
+			.filter((u) => u.stats?.[mode])
+			.map((u) => ({
+				name: u.name,
+				...u.stats[mode],
+			}))
+			.sort((a, b) => {
+				const bestA = a.best ?? null;
+				const bestB = b.best ?? null;
+				if (bestA === null && bestB === null) return 0;
+				if (bestA === null) return 1;
+				if (bestB === null) return -1;
+				return bestA - bestB;
+			})
+			.slice(0, 10);
+		socket.emit("leaderboard", { mode, leaderboard });
 	});
 });
 
@@ -368,6 +465,16 @@ app.post("/login", (req, res) => {
 	res.json({ success: true, user: { ...user, username } });
 });
 
+app.post("/logout", (req, res) => {
+	req.session.destroy((err) => {
+		if (err) {
+			return res.json({ success: false, msg: "Logout failed" });
+		}
+		res.clearCookie("connect.sid");
+		res.json({ success: true });
+	});
+});
+
 app.post("/verify", (req, res) => {
 	// @ts-expect-error
 	const { user } = req.session;
@@ -382,7 +489,7 @@ app.post("/verify", (req, res) => {
 // === Others ===
 // ==============
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8000;
 httpServer.listen(PORT, () => {
-	console.log(`Server listening on port ${PORT}`);
+	console.log(`Server listening on port ${PORT} (http://localhost:${PORT})`);
 });

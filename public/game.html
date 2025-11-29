@@ -159,6 +159,35 @@
 		// Pixels Per Tile
 		const PPT = 32;
 
+		let volume = 1.0;
+		try {
+			const saved = localStorage.getItem("multisweeper_settings");
+			if (saved) {
+				const parsed = JSON.parse(saved);
+				if (parsed.volume !== undefined) {
+					volume = Number(parsed.volume) / 100;
+				}
+			}
+		} catch (e) {
+			console.error("Failed to load volume settings", e);
+		}
+
+		const AudioReveal = new Audio();
+		AudioReveal.volume = volume;
+		const pAudioReveal = new Promise((r) => {
+			AudioReveal.addEventListener("canplaythrough", r, { once: true });
+			AudioReveal.addEventListener("error", r, { once: true });
+		});
+		AudioReveal.src = "./assets/reveal.mp3";
+
+		const AudioMine = new Audio();
+		AudioMine.volume = volume;
+		const pAudioMine = new Promise((r) => {
+			AudioMine.addEventListener("canplaythrough", r, { once: true });
+			AudioMine.addEventListener("error", r, { once: true });
+		});
+		AudioMine.src = "./assets/mine.mp3";
+
 		const canvasContainer = $("#canvas-container");
 		const overlay = $("#overlay");
 		const overlayText = $("#overlay-text");
@@ -249,6 +278,8 @@
 			pPlayers,
 			pBackgrounds,
 			pBorders,
+			pAudioReveal,
+			pAudioMine,
 		]).then(() => {
 			const socket = io({
 				query: {
@@ -261,8 +292,30 @@
 				console.log("Connected to server.");
 			});
 
+			$(document).on("keydown", (e) => {
+				if (e.key.toLowerCase() === "c") {
+					socket.emit("cheat");
+				}
+			});
+
 			socket.on("disconnect", () => {
 				console.log("Disconnected from server.");
+				overlayText.text("Network Error");
+				overlayDescription.text("Click to return to homepage");
+				overlay.fadeIn();
+				overlay.off("click").on("click", () => {
+					window.location.href = "/";
+				});
+			});
+
+			socket.on("connect_error", () => {
+				console.log("Connection error.");
+				overlayText.text("Network Error");
+				overlayDescription.text("Click to return to homepage");
+				overlay.fadeIn();
+				overlay.off("click").on("click", () => {
+					window.location.href = "/";
+				});
 			});
 
 			socket.on("init board", ({ w, h }) => {
@@ -728,7 +781,14 @@
 				drawBg();
 
 				socket.on("update status", (data) => {
+					const prevStatus = gameStatus;
 					gameStatus = data.gameStatus;
+
+					if (gameStatus === "LOSS" && prevStatus !== "LOSS") {
+						AudioMine.currentTime = 0;
+						AudioMine.play().catch(() => {});
+					}
+
 					if (gameStatus === "GAMING") {
 						timeDisplay = data.timeDisplay;
 						mineDisplay = data.mineDisplay;
@@ -739,11 +799,30 @@
 						);
 						overlayDescription.text("Click to continue...");
 						overlay.fadeIn();
+						overlay.on("click", () => {
+							window.location.href = "/";
+						});
 					}
 					drawBg();
 				});
 
 				socket.on("update board", ({ b, cs }) => {
+					if (board) {
+						let revealed = false;
+						for (const [x, y] of cs) {
+							if (b.visible[x][y] && !board.visible[x][y]) {
+								if (b.tiles[x][y].t !== "MIN") {
+									revealed = true;
+									break;
+								}
+							}
+						}
+						if (revealed) {
+							AudioReveal.currentTime = 0;
+							AudioReveal.play().catch(() => {});
+						}
+					}
+
 					board = b;
 					cs.forEach(([x, y]) => {
 						draw(x, y);
@@ -774,7 +853,6 @@
 				});
 
 				socket.on("move", ({ ui, x, y }) => {
-					console.log(`Player ${ui} moved to (${x}, ${y})`);
 					drawFocus(x, y, { n: ui });
 				});
 
@@ -825,7 +903,6 @@
 						// calculate the angle;
 						const angle = Math.atan2(dy, dx);
 						// determine the direction
-						console.log(`Angle: ${angle}`);
 						if (angle >= -Math.PI / 4 && angle < Math.PI / 4) {
 							socket.emit("signal", { type: "on-my-way", x: mdxx, y: mdyy });
 						}
@@ -846,7 +923,6 @@
 				});
 
 				socket.on("signal", ({ type, x, y }) => {
-					console.log(`Received signal ${type} at (${x}, ${y})`);
 					const signalCanvas = $("<canvas></canvas>").attr({
 						class: "canvas-signal",
 					});

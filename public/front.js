@@ -15,8 +15,18 @@ let userSettings = {
 
 document.addEventListener("DOMContentLoaded", () => {
 	loadSettings();
+	loadSideMenu();
 	checkSession();
 });
+
+function loadSideMenu() {
+	fetch("side-menu.html")
+		.then((r) => r.text())
+		.then((t) => {
+			document.body.insertAdjacentHTML("beforeend", t);
+			initSideMenu();
+		});
+}
 
 function checkSession() {
 	$.post("/verify")
@@ -137,7 +147,7 @@ function loadSettings() {
 	}
 }
 
-function loadStats(mode = "classic") {
+function loadStats(mode = "simple") {
 	if (!currentUser || !currentUser.stats) return;
 	const stats = currentUser.stats[mode] || { games: 0, wins: 0, best: null };
 
@@ -157,20 +167,26 @@ function initMainPage() {
 
 	const statModeSelect = $("#statsModeSelect");
 	if (statModeSelect.length) {
-		statModeSelect.val(localStorage.getItem("statsMode") || "classic");
+		statModeSelect.val(localStorage.getItem("statsMode") || "simple");
 		loadStats(statModeSelect.val());
 		statModeSelect.on("change", (e) => {
 			localStorage.setItem("statsMode", e.target.value);
 			loadStats(e.target.value);
 		});
 	} else {
-		loadStats("classic");
+		loadStats("simple");
 	}
 
 	connectSocket();
 
-	$("#logoutBtn").off("click").on("click", () => {
-		location.reload();
+	$("#logoutBtn").off("click").on("click", async () => {
+		try {
+			await fetch("/logout", { method: "POST" });
+			location.reload();
+		} catch (e) {
+			console.error("Logout failed", e);
+			location.reload();
+		}
 	});
 
 	$("#createLobbyBtn").off("click").on("click", () => {
@@ -192,10 +208,10 @@ function initMainPage() {
 			// Basic validation fallback
 			if (!w || w < 9) w = 9;
 			if (!h || h < 9) h = 9;
-			if (!c || c < 1) c = 10;
+			if (c === undefined || c === null || c < 0) c = 10;
 		}
 
-		socket.emit("create lobby", { name, w, h, c });
+		socket.emit("create lobby", { name, w, h, c, mode });
 	});
 
 	$("#joinLobbyBtn").off("click").on("click", () => {
@@ -232,45 +248,36 @@ function initMainPage() {
 		const h = Number(customH.val() || 0);
 		const m = Number(customM.val() || 0);
 
-		const tileMin = 20;
-		const maxGridWByViewport =
-			Math.floor((window.innerWidth * 0.65) / tileMin) || 50;
-		const maxGridHByViewport =
-			Math.floor((window.innerHeight * 0.85) / tileMin) || 30;
-		const maxGridW = Math.min(50, Math.max(5, maxGridWByViewport));
-		const maxGridH = Math.min(30, Math.max(5, maxGridHByViewport));
-		const maxM = Math.max(1, w * h - 1);
+		const maxM = Math.max(1, w * h - 9);
 
 		const valid =
 			Number.isInteger(w) &&
-			w >= 5 &&
-			w <= maxGridW &&
+			w >= 9 &&
 			Number.isInteger(h) &&
-			h >= 5 &&
-			h <= maxGridH &&
+			h >= 9 &&
 			Number.isInteger(m) &&
-			m >= 1 &&
+			m >= 0 &&
 			m <= maxM;
 
 		createBtn.prop("disabled", !valid);
 
 		customW.toggleClass(
 			"custom-invalid",
-			!(Number.isInteger(w) && w >= 5 && w <= maxGridW),
+			!(Number.isInteger(w) && w >= 9),
 		);
 		customH.toggleClass(
 			"custom-invalid",
-			!(Number.isInteger(h) && h >= 5 && h <= maxGridH),
+			!(Number.isInteger(h) && h >= 9),
 		);
 		customM.toggleClass(
 			"custom-invalid",
-			!(Number.isInteger(m) && m >= 1 && m <= maxM),
+			!(Number.isInteger(m) && m >= 0 && m <= maxM),
 		);
 
 		if (valid) {
 			customHint.text(`Mines max = ${maxM}`);
 		} else {
-			customHint.text(`Max W=${maxGridW}, H=${maxGridH}`);
+			customHint.text(`Min W=9, H=9`);
 		}
 	}
 
@@ -279,7 +286,14 @@ function initMainPage() {
 	customM.off("input").on("input", validateCustomParams);
 	$("#modeSelect").on("change", validateCustomParams);
 
-	initSideMenu();
+	const lbModeSelect = $("#leaderboardModeSelect");
+	if (lbModeSelect.length) {
+		lbModeSelect.val("simple");
+		lbModeSelect.on("change", () => {
+			const mode = lbModeSelect.val();
+			socket.emit("get leaderboard", { mode });
+		});
+	}
 }
 
 function initSideMenu() {
@@ -288,11 +302,16 @@ function initSideMenu() {
 	const close = $("#closeSideMenu");
 	const volSlider = $("#sideVolume");
 	const volVal = $("#sideVolumeVal");
-	const introToggle = $("#sideIntroToggle");
-	const introContent = $("#sideIntro");
+	const helpBtn = $("#loginHelpBtn");
 
 	if (toggle.length) {
 		toggle.on("click", () => {
+			menu.addClass("open");
+		});
+	}
+
+	if (helpBtn.length) {
+		helpBtn.on("click", () => {
 			menu.addClass("open");
 		});
 	}
@@ -309,7 +328,8 @@ function initSideMenu() {
 			menu.hasClass("open") &&
 			!menu.is(e.target) &&
 			menu.has(e.target).length === 0 &&
-			!toggle.is(e.target)
+			!toggle.is(e.target) &&
+			!helpBtn.is(e.target)
 		) {
 			menu.removeClass("open");
 		}
@@ -330,28 +350,12 @@ function initSideMenu() {
 			);
 		});
 	}
-
-	// Intro Toggle
-	if (introToggle.length && introContent.length) {
-		introToggle.on("click", () => {
-			const visible = introContent.is(":visible");
-			if (visible) {
-				introContent.slideUp();
-				introToggle.text("Read More");
-			} else {
-				introContent.slideDown();
-				introToggle.text("Show Less");
-			}
-		});
-	}
 }
 
 function connectSocket() {
 	socket = io("/lobby", {
 		query: { player: currentUser.username },
 	});
-
-	socket.on("connect", () => console.log("Connected to lobby"));
 
 	socket.on("update lobbies", ({ lobbies }) => {
 		const container = $("#lobbyListContainer");
@@ -400,8 +404,69 @@ function connectSocket() {
 		}
 	});
 
-	socket.on("launch game", ({ game }) => {
-		window.location.href = `game.html?room=${game}&user=${currentUser.username}`;
+	socket.on("launch game", ({ game, mode }) => {
+		window.location.href = `game.html?room=${game}&user=${currentUser.username}&mode=${mode}`;
+	});
+
+	socket.on("leaderboard", ({ mode, leaderboard }) => {
+		const select = $("#leaderboardModeSelect");
+		if (select.val() !== mode) return;
+
+		const container = $("#leaderboardList");
+		container.empty();
+
+		if (leaderboard.length === 0) {
+			container.html('<div style="text-align: center; color: #888; padding: 10px;">No records yet</div>');
+			return;
+		}
+
+		let lastBest = null;
+		let rankDisplay = 0;
+
+		leaderboard.forEach((entry, index) => {
+			let rankStr = "--";
+			if (entry.best !== null) {
+				if (entry.best !== lastBest) {
+					rankDisplay = index + 1;
+					lastBest = entry.best;
+				}
+				rankStr = rankDisplay;
+			}
+
+			const winRate = entry.games > 0 ? Math.round((entry.wins / entry.games) * 100) + "%" : "0%";
+
+			const row = $("<div></div>")
+				.css({
+					display: "grid",
+					"grid-template-columns": "0.5fr 2fr 1fr 1fr 1fr 1fr",
+					gap: "5px",
+					padding: "4px 0",
+					"border-bottom": "1px solid #eee"
+				})
+				.html(`
+					<span style="text-align: center; font-weight: bold; color: #666;">${rankStr}</span>
+					<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${entry.name}</span>
+					<span style="text-align: center;">${entry.games}</span>
+					<span style="text-align: center;">${entry.wins}</span>
+					<span style="text-align: center;">${winRate}</span>
+					<span style="text-align: right;">${entry.best !== null ? entry.best + "s" : "--"}</span>
+				`);
+			container.append(row);
+		});
+	});
+
+	socket.on("leaderboard update", ({ mode }) => {
+		const select = $("#leaderboardModeSelect");
+		if (select.val() === mode) {
+			socket.emit("get leaderboard", { mode });
+		}
+	});
+
+	socket.on("connect", () => {
+		const select = $("#leaderboardModeSelect");
+		if (select.length) {
+			socket.emit("get leaderboard", { mode: select.val() });
+		}
 	});
 
 	socket.on("error", ({ message }) => showToast(message));
@@ -409,6 +474,7 @@ function connectSocket() {
 
 function showLobbyUI(gameId, roomName, players) {
 	$("#roomInfo").show();
+	$("#lobbySelection").hide();
 	$("#currentRoomName").text(roomName);
 	$("#currentRoomId").text(gameId);
 
@@ -438,6 +504,18 @@ function showLobbyUI(gameId, roomName, players) {
 		copyBtn.off("click").on("click", () => {
 			navigator.clipboard.writeText(gameId);
 			showToast("Copied Room ID");
+		});
+	}
+
+	// Bind leave button
+	const leaveBtn = $("#leaveLobbyBtn");
+	if (leaveBtn.length) {
+		leaveBtn.off("click").on("click", () => {
+			socket.emit("leave lobby", { game: gameId });
+			$("#roomInfo").hide();
+			$("#hostControls").hide();
+			$("#lobbySelection").show();
+			currentLobbyId = null;
 		});
 	}
 }

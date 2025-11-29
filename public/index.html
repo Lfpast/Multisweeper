@@ -18,7 +18,14 @@
 	<body>
 		<!-- Login / Registration Modal -->
 		<div id="loginModal" class="modal">
-			<div class="modal-content login-split-container">
+			<div class="modal-content login-split-container" style="position: relative;">
+				<button
+					id="loginHelpBtn"
+					class="icon-btn"
+					style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.1); color: #333; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; border: none; font-size: 14px;"
+				>
+					?
+				</button>
 				<div class="login-section">
 					<h2>Register</h2>
 					<input
@@ -101,85 +108,92 @@
 						Welcome, <span id="welcomeUser"></span>!
 					</h2>
 
-					<h3 style="margin:20px 0 10px;">Join a Room</h3>
+					<div id="lobbySelection">
+						<h3 style="margin:20px 0 10px;">Join a Room</h3>
 
-					<div id="lobbyListContainer" class="lobby-list">
-						<div style="padding:10px; color:#888; text-align:center;">
-							Loading rooms...
-						</div>
-					</div>
-
-					<div class="join-box" style="margin-bottom:25px;">
-						<input type="text" id="roomInput" placeholder="Enter Room ID">
-						<button id="joinLobbyBtn">Join Room</button>
-					</div>
-
-					<h3 style="margin:20px 0 10px;">Or Create New Room</h3>
-					<input
-						type="text"
-						id="roomNameInput"
-						placeholder="Room Name (optional)"
-					>
-					
-					<div style="margin: 15px 0;">
-						<label style="font-weight:600; display:block; margin-bottom:5px;">Game Mode</label>
-						<select id="modeSelect">
-							<option value="simple">Simple (9×9, 10 mines)</option>
-							<option value="medium">Medium (16×16, 40 mines)</option>
-							<option value="expert">Expert (30×16, 99 mines)</option>
-							<option value="custom">Custom</option>
-						</select>
-						
-						<div
-							id="customParams"
-							style="display:none; margin-top:12px; gap:8px;"
-						>
-							<label style="display:block; font-weight:600; margin-bottom:8px;">
-								Custom Board
-							</label>
-							<div style="display:flex; gap:8px;">
-								<input
-									id="customW"
-									type="number"
-									min="5"
-									max="50"
-									step="1"
-									placeholder="Width (min 5)"
-									style="flex:1; padding:8px; border-radius:8px;"
-								>
-								<input
-									id="customH"
-									type="number"
-									min="5"
-									max="30"
-									step="1"
-									placeholder="Height (min 5)"
-									style="flex:1; padding:8px; border-radius:8px;"
-								>
+						<div id="lobbyListContainer" class="lobby-list">
+							<div style="padding:10px; color:#888; text-align:center;">
+								Loading rooms...
 							</div>
+						</div>
+
+						<div class="join-box" style="margin-bottom:25px;">
+							<input type="text" id="roomInput" placeholder="Enter Room ID">
+							<button id="joinLobbyBtn">Join Room</button>
+						</div>
+
+						<h3 style="margin:20px 0 10px;">Or Create New Room</h3>
+						<input
+							type="text"
+							id="roomNameInput"
+							placeholder="Room Name (optional)"
+						>
+						
+						<div style="margin: 15px 0;">
+							<label style="font-weight:600; display:block; margin-bottom:5px;">Game Mode</label>
+							<select id="modeSelect">
+								<option value="simple">Simple (9×9, 10 mines)</option>
+								<option value="medium">Medium (16×16, 40 mines)</option>
+								<option value="expert">Expert (30×16, 99 mines)</option>
+								<option value="custom">Custom</option>
+							</select>
+							
 							<div
-								style="display:flex; gap:8px; margin-top:8px; align-items:center;"
+								id="customParams"
+								style="display:none; margin-top:12px; gap:8px;"
 							>
-								<input
-									id="customM"
-									type="number"
-									min="1"
-									step="1"
-									placeholder="Mines"
-									style="flex:1; padding:8px; border-radius:8px;"
+								<label style="display:block; font-weight:600; margin-bottom:8px;">
+									Custom Board
+								</label>
+								<div style="display:flex; gap:8px;">
+									<input
+										id="customW"
+										type="number"
+										min="9"
+										step="1"
+										placeholder="Width (min 9)"
+										style="flex:1; padding:8px; border-radius:8px;"
+									>
+									<input
+										id="customH"
+										type="number"
+										min="9"
+										step="1"
+										placeholder="Height (min 9)"
+										style="flex:1; padding:8px; border-radius:8px;"
+									>
+								</div>
+								<div
+									style="display:flex; gap:8px; margin-top:8px; align-items:center;"
 								>
-								<div id="customHint" style="font-size:12px; color:#666;">
-									Mines max = W × H - 1
+									<input
+										id="customM"
+										type="number"
+										min="0"
+										step="1"
+										placeholder="Mines"
+										style="flex:1; padding:8px; border-radius:8px;"
+									>
+									<div id="customHint" style="font-size:12px; color:#666;">
+										Mines max = W × H - 9
+									</div>
 								</div>
 							</div>
 						</div>
-					</div>
 
-					<button id="createLobbyBtn" class="big-btn">Create Room</button>
+						<button id="createLobbyBtn" class="big-btn">Create Room</button>
+					</div>
 
 					<div id="hostControls" style="display:none; margin-top:25px;">
 						<button id="startGameBtn" class="big-btn" style="margin-top:12px;">
 							Start Game
+						</button>
+						<button
+							id="leaveLobbyBtn"
+							class="big-btn"
+							style="margin-top:12px; background: linear-gradient(to bottom, #ff6b6b, #c0392b) !important;"
+						>
+							Leave Room
 						</button>
 					</div>
 
@@ -226,11 +240,9 @@
 								id="statsModeSelect"
 								style="padding:8px; border-radius:8px;"
 							>
-								<option value="classic">Classic</option>
 								<option value="simple">Simple</option>
 								<option value="medium">Medium</option>
 								<option value="expert">Expert</option>
-								<option value="custom">Custom</option>
 							</select>
 						</div>
 
@@ -257,6 +269,35 @@
 						<!-- Total Play Time removed per request -->
 					</div>
 
+					<div id="leaderboard" style="margin-top: 25px;">
+						<h3>Leaderboard</h3>
+						<div
+							style="display:flex; align-items:center; gap:8px; margin-bottom:12px; justify-content:center;"
+						>
+							<label for="leaderboardModeSelect" style="font-weight:600;">Mode</label>
+							<select
+								id="leaderboardModeSelect"
+								style="padding:8px; border-radius:8px;"
+							>
+								<option value="simple">Simple</option>
+								<option value="medium">Medium</option>
+								<option value="expert">Expert</option>
+							</select>
+						</div>
+
+						<div class="leaderboard-header" style="display: grid; grid-template-columns: 0.5fr 2fr 1fr 1fr 1fr 1fr; gap: 5px; font-weight: bold; font-size: 0.9em; margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid #ccc;">
+							<span style="text-align: center;">#</span>
+							<span>Player</span>
+							<span style="text-align: center;">Games</span>
+							<span style="text-align: center;">Wins</span>
+							<span style="text-align: center;">Rate</span>
+							<span style="text-align: right;">Best</span>
+						</div>
+						<div id="leaderboardList" style="font-size: 0.9em;">
+							<div style="text-align: center; color: #888; padding: 10px;">Loading...</div>
+						</div>
+					</div>
+
 					<!-- Gameplay Settings removed from Lobby - managed via Side Menu -->
 				</div>
 			</div>
@@ -265,11 +306,6 @@
 		<!-- Game Page removed -->
 
 		<script src="front.js"></script>
-		<!-- Side menu partial -->
-		<script>
-		fetch("side-menu.html")
-			.then((r) => r.text())
-			.then((t) => document.body.insertAdjacentHTML("beforeend", t));
-		</script>
+		<!-- Side menu partial removed - loaded in front.js -->
 	</body>
 </html>
