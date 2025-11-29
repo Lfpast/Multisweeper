@@ -893,7 +893,7 @@
 						}
 					}
 
-					if (x !== mdx || y !== mdy) {
+					if ((x !== mdx || y !== mdy) && event.button === 2) {
 						const xx = (event.offsetX - bdl) / PPT;
 						const yy = (event.offsetY - bdt) / PPT;
 
