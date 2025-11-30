@@ -47,8 +47,6 @@
 		#canvas-press,
 		.canvas-focus {
 			position: absolute;
-			left: calc(32px * 2);
-			bottom: calc(32px * 2);
 		}
 
 		#canvas-background {
@@ -157,7 +155,7 @@
 		</script>
 		<script type="module">
 		// Pixels Per Tile
-		const PPT = 32;
+		let PPT = 32;
 
 		let volume = 1.0;
 		try {
@@ -321,6 +319,16 @@
 			socket.on("init board", ({ w, h }) => {
 				console.log(`Initialize board with width: ${w}, height: ${h}`);
 
+				// Dynamic Scaling
+				const gc = $("#game-container");
+				const availW = gc.width();
+				const availH = gc.height();
+				const tilesW = w + 4; // 2 left + 2 right
+				const tilesH = h + 6; // 4 top + 2 bottom
+				PPT = Math.floor(Math.min(availW / tilesW, availH / tilesH));
+				if (PPT > 32) PPT = 32;
+				if (PPT < 10) PPT = 10; // Minimum size
+
 				overlay.fadeOut();
 
 				// Border L, R, T, B
@@ -338,6 +346,11 @@
 
 				canvasContainer.css("width", `${bgw}px`);
 				canvasContainer.css("height", `${bgh}px`);
+
+				const pos = { left: `${bdl}px`, top: `${bdt}px` };
+				canvas.css(pos);
+				canvasPress.css(pos);
+				$(".canvas-focus").css(pos);
 
 				canvasBackground[0].width = bgw;
 				canvasBackground[0].height = bgh;

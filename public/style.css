@@ -1,4 +1,4 @@
-/* 默认主题：Classic White */
+/* Default Theme: Classic White */
 @font-face {
 	font-family: "Tomorrow Night";
 	src: url("assets/Tomorrow_Night.ttf") format("truetype");
@@ -14,9 +14,9 @@
 	background: #f5f7fa;
 }
 
-/* ====================== 统一所有主题的按钮立体渐变效果 ====================== */
+/* ====================== Unified 3D Gradient Effect for Buttons ====================== */
 
-/* Classic 蓝色立体渐变 */
+/* Classic Blue 3D Gradient */
 .big-btn,
 #joinLobbyBtn,
 #copyRoomBtn,
@@ -44,6 +44,7 @@ body {
 	min-height: 100vh;
 	display: flex;
 	flex-direction: column;
+	font-size: 14px;
 }
 
 button,
@@ -58,24 +59,26 @@ textarea {
 	justify-content: center; /* Center the content horizontally */
 	align-items: center; /* Center vertically inside container */
 	max-width: 1200px;
-	margin: 80px auto 40px;
-	padding: 0 30px;
-	gap: 40px;
+	margin: 0 auto; /* Remove vertical margins */
+	padding: 70px 30px 20px; /* Top padding for header */
+	gap: 20px;
+	min-height: 100vh; /* Take full viewport height */
+	box-sizing: border-box;
 }
 
 .left-panel,
 .right-panel {
 	flex: 1;
 	background: var(--card);
-	padding: 30px;
+	padding: 20px;
 	border-radius: 16px;
 	box-shadow: 0 4px 20px var(--shadow);
 }
 
 .big-btn {
 	width: 100%;
-	padding: 16px;
-	font-size: 18px;
+	padding: 10px;
+	font-size: 14px;
 	border: none;
 	color: white;
 	border-radius: 12px;
@@ -93,8 +96,8 @@ textarea {
 #backToLobbyBtn,
 #restartOverBtn,
 #startNewGameBtn {
-	padding: 10px 20px;
-	font-size: 16px;
+	padding: 8px 16px;
+	font-size: 14px;
 	border: none;
 	color: white;
 	border-radius: 8px;
@@ -156,7 +159,7 @@ textarea {
 }
 .modal-content {
 	background: #ffffff;
-	padding: 40px;
+	padding: 30px;
 	border-radius: 16px;
 	text-align: center;
 	width: 90%;
@@ -168,13 +171,13 @@ textarea {
 input,
 select {
 	width: 100%;
-	padding: 12px;
-	margin: 10px 0;
+	padding: 10px;
+	margin: 8px 0;
 	border-radius: 8px;
 	border: 1px solid #ddd;
 	background: #fff;
 	color: #333;
-	font-size: 16px;
+	font-size: 14px;
 	box-sizing: border-box;
 }
 
@@ -215,7 +218,7 @@ th {
 	top: 0;
 	left: 0;
 	right: 0;
-	height: 60px;
+	height: 50px;
 	z-index: 100;
 	backdrop-filter: blur(12px);
 	border-bottom: 1px solid #eee;
@@ -225,10 +228,10 @@ th {
 .header h1 {
 	margin: 0;
 	color: var(--accent);
-	font-size: 24px;
+	font-size: 20px;
 }
 
-/* Gameplay Settings 样式 */
+/* Gameplay Settings Style */
 .volume-control {
 	display: flex;
 	align-items: center;
@@ -264,18 +267,18 @@ th {
 }
 
 #currentRoomName {
-	font-size: 18px;
+	font-size: 16px;
 	font-weight: bold;
 }
 
-/* 让 Join Room 按钮在所有主题下都好看 */
+/* Make Join Room button look good in all themes */
 #joinLobbyBtn {
 	padding: 12px 24px;
 	border-radius: 10px;
 	font-weight: bold;
 }
 
-/* 让输入框在 Garden 主题下也好看 */
+/* Make input boxes look good in Garden theme */
 [data-theme="garden"] input,
 [data-theme="garden"] select {
 	background: rgba(255, 255, 255, 0.95);
@@ -284,10 +287,11 @@ th {
 
 /* Game Page Specific Styles - REMOVED */
 
-#volumeValue {
-	margin-left: 10px;
-	min-width: 40px;
-	font-weight: bold;
+#personalStats, #leaderboard {
+	background: rgba(0, 0, 0, 0.03);
+	padding: 15px;
+	border-radius: 12px;
+	border: 1px solid rgba(0,0,0,0.05);
 }
 
 .players-list li.me {
@@ -321,6 +325,7 @@ th {
 .login-section h2 {
 	margin: 0 0 10px 0;
 	color: var(--accent);
+	font-size: 18px;
 }
 
 .login-divider {
@@ -365,16 +370,16 @@ th {
 .lobby-item .name {
 	font-weight: bold;
 	color: var(--text);
-	font-size: 15px;
+	font-size: 14px;
 }
 
 .lobby-item .details {
-	font-size: 12px;
+	font-size: 11px;
 	color: #666;
 }
 
 .lobby-item .status {
-	font-size: 12px;
+	font-size: 11px;
 	padding: 4px 8px;
 	border-radius: 12px;
 	font-weight: bold;
@@ -406,10 +411,10 @@ th {
 }
 .header .big-btn {
 	width: auto; /* prevent full width; keep compact in header */
-	padding: 8px 14px;
-	font-size: 15px;
+	padding: 6px 12px;
+	font-size: 13px;
 	border-radius: 10px;
-	height: 36px;
+	height: 32px;
 	align-self: center;
 }
 
@@ -453,6 +458,9 @@ th {
 .side-menu.open {
 	right: 0;
 }
+.side-menu.open ~ .side-menu-toggle {
+	display: none;
+}
 .side-menu-header {
 	display: flex;
 	align-items: center;
@@ -480,9 +488,12 @@ th {
 .side-row input {
 	flex: 0;
 }
-.side-section h4 {
-	margin: 0 0 8px 0;
+.side-section h4, .side-section h5 {
 	color: var(--accent);
+	border-bottom: 2px solid rgba(52, 152, 219, 0.2);
+	padding-bottom: 5px;
+	margin-top: 15px;
+	margin-bottom: 10px;
 }
 .icon-btn {
 	background: none;

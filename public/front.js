@@ -207,7 +207,9 @@ function initMainPage() {
 			
 			// Basic validation fallback
 			if (!w || w < 9) w = 9;
+			if (w > 50) w = 50;
 			if (!h || h < 9) h = 9;
+			if (h > 30) h = 30;
 			if (c === undefined || c === null || c < 0) c = 10;
 		}
 
@@ -253,8 +255,10 @@ function initMainPage() {
 		const valid =
 			Number.isInteger(w) &&
 			w >= 9 &&
+			w <= 50 &&
 			Number.isInteger(h) &&
 			h >= 9 &&
+			h <= 30 &&
 			Number.isInteger(m) &&
 			m >= 0 &&
 			m <= maxM;
@@ -263,11 +267,11 @@ function initMainPage() {
 
 		customW.toggleClass(
 			"custom-invalid",
-			!(Number.isInteger(w) && w >= 9),
+			!(Number.isInteger(w) && w >= 9 && w <= 50),
 		);
 		customH.toggleClass(
 			"custom-invalid",
-			!(Number.isInteger(h) && h >= 9),
+			!(Number.isInteger(h) && h >= 9 && h <= 30),
 		);
 		customM.toggleClass(
 			"custom-invalid",
@@ -277,7 +281,7 @@ function initMainPage() {
 		if (valid) {
 			customHint.text(`Mines max = ${maxM}`);
 		} else {
-			customHint.text(`Min W=9, H=9`);
+			customHint.text(`W: 9-50, H: 9-30`);
 		}
 	}
 
