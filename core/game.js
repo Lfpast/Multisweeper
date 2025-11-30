@@ -213,12 +213,13 @@ export class Game {
 		}
 		if (
 			win ||
-			isAmbiguous(
-				this.w,
-				this.h,
-				this.#board.isVisible.bind(this.#board),
-				this.#board.get.bind(this.#board),
-			)
+			(this.w * this.h <= 480 &&
+				isAmbiguous(
+					this.w,
+					this.h,
+					this.#board.isVisible.bind(this.#board),
+					this.#board.get.bind(this.#board),
+				))
 		) {
 			return "WIN";
 		}
