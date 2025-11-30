@@ -41,9 +41,9 @@ Real-time collaboration on a shared grid.
     - **Right-Click**: Flag a suspected mine.
     - **Right-Click + Drag**: Send a visual signal to teammates.
         - ➡️ **Right**: "On my way"
-        - ⬅️ **Left**: "Help me"
+        - ⬅️ **Left**: "What are you doing?"
         - ⬆️ **Up**: "Don't do it"
-        - ⬇️ **Down**: "Confused / Question"
+        - ⬇️ **Down**: "Help me"
 - **Rules**:
     - Numbers indicate mines in the surrounding 3x3 area.
     - Clicking a mine ends the game for **everyone**.
