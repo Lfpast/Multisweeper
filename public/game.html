@@ -1059,6 +1059,7 @@
 				});
 
 				socket.on("update board", ({ b, cs }) => {
+					const isInit = !board;
 					if (board) {
 						let revealed = false;
 						for (const [x, y] of cs) {
@@ -1076,9 +1077,19 @@
 					}
 
 					board = b;
-					cs.forEach(([x, y]) => {
-						draw(x, y);
-					});
+					
+					if (isInit) {
+						// Ripple animation for initialization
+						cs.forEach(([x, y]) => {
+							setTimeout(() => {
+								draw(x, y);
+							}, (x + y) * 15);
+						});
+					} else {
+						cs.forEach(([x, y]) => {
+							draw(x, y);
+						});
+					}
 				});
 
 				socket.on("patch board", ({ patch }) => {
