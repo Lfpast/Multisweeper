@@ -285,7 +285,15 @@ function initMainPage() {
 			!(Number.isInteger(m) && m >= 0 && m <= maxM),
 		);
 
-		if (valid) {
+		const dimsValid =
+			Number.isInteger(w) &&
+			w >= 9 &&
+			w <= 50 &&
+			Number.isInteger(h) &&
+			h >= 9 &&
+			h <= 30;
+
+		if (dimsValid) {
 			customHint.text(`Mines max = ${maxM}`);
 		} else {
 			customHint.text(`W: 9-50, H: 9-30`);
