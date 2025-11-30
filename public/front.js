@@ -31,6 +31,7 @@ function loadSideMenu() {
 function checkSession() {
 	$.post("/verify")
 		.done((data) => {
+			$("#loadingOverlay").fadeOut(200);
 			if (data.success) {
 				currentUser = data.user;
 				initMainPage();
@@ -38,7 +39,10 @@ function checkSession() {
 				showLoginModal();
 			}
 		})
-		.fail(() => showLoginModal());
+		.fail(() => {
+			$("#loadingOverlay").fadeOut(200);
+			showLoginModal();
+		});
 
 	// Bind login buttons just in case
 	setTimeout(ensureLoginBindings, 50);

@@ -139,6 +139,16 @@ io.on("connection", (socket) => {
 			roomDeads.add(room);
 			if (updater) clearInterval(updater);
 
+			// Remove lobby on game over
+			if (lobbies[room]) {
+				delete lobbies[room];
+				if (lobbyTimeouts.has(room)) {
+					clearTimeout(lobbyTimeouts.get(room));
+					lobbyTimeouts.delete(room);
+				}
+				io.of("/lobby").emit("update lobbies", { lobbies });
+			}
+
 			// Update stats
 			const mode = roomModes.get(room);
 			if (mode && Modes.includes(mode)) {

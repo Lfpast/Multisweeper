@@ -1050,6 +1050,8 @@
 						overlayDescription.text("Click to continue...");
 						overlay.fadeIn();
 						overlay.on("click", () => {
+							// Clear session storage to prevent auto-rejoin
+							sessionStorage.removeItem("currentLobbyId");
 							window.location.href = "/";
 						});
 					}
