@@ -5,23 +5,23 @@
 }
 
 :root {
-	--bg: #f5f7fa;
-	--card: #ffffff;
-	--text: #2c3e50;
-	--accent: #3498db;
-	--border: #e1e8ed;
-	--shadow: rgba(0, 0, 0, 0.08);
-	background: #f5f7fa;
+	--bg: #897a6c;
+	--card: #fdfbf7;
+	--text: #4e342e;
+	--accent: #d35400;
+	--border: #d7ccc8;
+	--shadow: rgba(0, 0, 0, 0.2);
+	background: var(--bg);
 }
 
 /* ====================== Unified 3D Gradient Effect for Buttons ====================== */
 
-/* Classic Blue 3D Gradient */
+/* Earthy Orange 3D Gradient */
 .big-btn,
 #joinLobbyBtn,
 #copyRoomBtn,
 #startGameBtn {
-	background: linear-gradient(to bottom, #66b3ff, #3498db);
+	background: linear-gradient(to bottom, #e67e22, #d35400);
 	box-shadow:
 		inset 0 1px 0 rgba(255, 255, 255, 0.4),
 		0 4px 12px rgba(0, 0, 0, 0.25);
@@ -30,9 +30,9 @@
 .big-btn:hover,
 #joinLobbyBtn:hover,
 #copyRoomBtn:hover {
-	background: linear-gradient(to bottom, #80bfff, #3498db);
+	background: linear-gradient(to bottom, #f39c12, #d35400);
 	transform: translateY(-2px);
-	box-shadow: 0 8px 20px rgba(52, 152, 219, 0.5);
+	box-shadow: 0 8px 20px rgba(211, 84, 0, 0.5);
 }
 
 body {
@@ -84,8 +84,8 @@ textarea {
 	border-radius: 12px;
 	cursor: pointer;
 	transition: all 0.3s ease;
-	/* Default blue if no theme is set */
-	background: linear-gradient(to bottom, #66b3ff, #3498db);
+	/* Default orange if no theme is set */
+	background: linear-gradient(to bottom, #e67e22, #d35400);
 	box-shadow:
 		inset 0 1px 0 rgba(255, 255, 255, 0.4),
 		0 4px 12px rgba(0, 0, 0, 0.25);
@@ -103,7 +103,7 @@ textarea {
 	border-radius: 8px;
 	cursor: pointer;
 	transition: all 0.3s ease;
-	background: linear-gradient(to bottom, #66b3ff, #3498db);
+	background: linear-gradient(to bottom, #e67e22, #d35400);
 	box-shadow:
 		inset 0 1px 0 rgba(255, 255, 255, 0.4),
 		0 4px 12px rgba(0, 0, 0, 0.25);
@@ -112,9 +112,9 @@ textarea {
 #backToLobbyBtn:hover,
 #restartOverBtn:hover,
 #startNewGameBtn:hover {
-	background: linear-gradient(to bottom, #80bfff, #3498db);
+	background: linear-gradient(to bottom, #f39c12, #d35400);
 	transform: translateY(-2px);
-	box-shadow: 0 6px 16px rgba(52, 152, 219, 0.5);
+	box-shadow: 0 6px 16px rgba(211, 84, 0, 0.5);
 }
 
 .btn-group {
@@ -213,7 +213,7 @@ th {
 	justify-content: space-between;
 	align-items: center;
 	padding: 0 30px;
-	background: rgba(255, 255, 255, 0.95);
+	background: rgba(253, 251, 247, 0.95);
 	position: fixed;
 	top: 0;
 	left: 0;
@@ -434,7 +434,7 @@ th {
 
 .header .big-btn:hover {
 	transform: translateY(-2px);
-	box-shadow: 0 6px 16px rgba(52, 152, 219, 0.5);
+	box-shadow: 0 6px 16px rgba(211, 84, 0, 0.5);
 }
 
 /* Side menu styles */
@@ -451,6 +451,7 @@ th {
 	border-radius: 8px;
 	cursor: pointer;
 	box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+	font-size: 24px;
 }
 /* Hide the side menu toggle during login modal (inline style 'display:flex') as an extra fallback */
 #loginModal[style*="display: flex"] ~ #sideMenuToggle {
@@ -504,7 +505,7 @@ th {
 }
 .side-section h4, .side-section h5 {
 	color: var(--accent);
-	border-bottom: 2px solid rgba(52, 152, 219, 0.2);
+	border-bottom: 2px solid rgba(211, 84, 0, 0.2);
 	padding-bottom: 5px;
 	margin-top: 15px;
 	margin-bottom: 10px;

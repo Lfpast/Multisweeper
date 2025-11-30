@@ -885,13 +885,21 @@
 					drawPress(x, y);
 				});
 
-				canvasBackground.on("mouseup", (event) => {
-					const x = Math.floor((event.offsetX - bdl) / PPT);
-					const y = Math.floor((event.offsetY - bdt) / PPT);
+				$(document).on("mouseup", (event) => {
+					// Calculate coordinates relative to canvasBackground
+					const offset = canvasBackground.offset();
+					const relX = event.clientX - offset.left;
+					const relY = event.clientY - offset.top;
 
-					drawPress(mdx, mdy, { clear: true });
+					const x = Math.floor((relX - bdl) / PPT);
+					const y = Math.floor((relY - bdt) / PPT);
+
+					if (!isNaN(mdx)) {
+						drawPress(mdx, mdy, { clear: true });
+					}
 
 					if (
+						!isNaN(mdx) &&
 						x === mdx &&
 						y === mdy &&
 						x >= 0 &&
@@ -906,9 +914,9 @@
 						}
 					}
 
-					if ((x !== mdx || y !== mdy) && event.button === 2) {
-						const xx = (event.offsetX - bdl) / PPT;
-						const yy = (event.offsetY - bdt) / PPT;
+					if (!isNaN(mdx) && (x !== mdx || y !== mdy) && event.button === 2) {
+						const xx = (relX - bdl) / PPT;
+						const yy = (relY - bdt) / PPT;
 
 						// calculate the vector
 						const dx = xx - mdxx;
@@ -933,6 +941,9 @@
 							socket.emit("signal", { type: "dont-do", x: mdxx, y: mdyy });
 						}
 					}
+					
+					// Reset mdx to prevent stale clicks
+					mdx = NaN;
 				});
 
 				socket.on("signal", ({ type, x, y }) => {
