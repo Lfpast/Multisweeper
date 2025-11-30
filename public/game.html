@@ -1081,6 +1081,33 @@
 					});
 				});
 
+				socket.on("patch board", ({ patch }) => {
+					if (!board) return;
+
+					let revealed = false;
+					patch.forEach(({ x, y, t, v, f }) => {
+						// Check for reveal sound
+						if (v && !board.visible[x][y]) {
+							if (t.t !== "MIN") {
+								revealed = true;
+							}
+						}
+
+						// Update state
+						board.tiles[x][y] = t;
+						board.visible[x][y] = v;
+						board.flag[x][y] = f;
+
+						// Redraw
+						draw(x, y);
+					});
+
+					if (revealed) {
+						AudioReveal.currentTime = 0;
+						AudioReveal.play().catch(() => {});
+					}
+				});
+
 				// Draw cursor once
 				ctxCursor.imageSmoothingEnabled = false;
 				ctxCursor.drawImage(UI, 1 * 16, 4 * 16, 16, 16, 0, 0, 32, 32);

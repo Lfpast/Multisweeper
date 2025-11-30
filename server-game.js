@@ -125,7 +125,16 @@ io.on("connection", (socket) => {
 		console.log(`[${socket.id}] Board update in room ${room}`);
 		// Use socket.emit instead of io.to(room).emit to prevent N^2 broadcast storm
 		// Each connected user has their own subscription, so they will receive their own update
-		socket.emit("update board", { b: b.toPlain(), cs });
+		
+		// Optimize bandwidth: Send patch instead of full board
+		const patch = cs.map(([x, y]) => ({
+			x, y,
+			t: b.get(x, y),
+			v: b.isVisible(x, y),
+			f: b.hasFlag(x, y)
+		}));
+		socket.emit("patch board", { patch });
+		
 		update();
 		if (!gameEpoch.has(room)) {
 			gameEpoch.set(room, Date.now());
