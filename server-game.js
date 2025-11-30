@@ -28,7 +28,7 @@ const userSession = session({
 	resave: false,
 	saveUninitialized: false,
 	rolling: true,
-	cookie: { maxAge: 300000 },
+	cookie: { maxAge: 3600000 }, // 1 hour
 });
 app.use(userSession);
 
