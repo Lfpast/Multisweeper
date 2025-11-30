@@ -233,7 +233,7 @@ export class Game {
 		}
 		if (
 			win ||
-			(this.w * this.h <= 480 &&
+			(this.w * this.h < 480 &&
 				isAmbiguous(
 					this.w,
 					this.h,
